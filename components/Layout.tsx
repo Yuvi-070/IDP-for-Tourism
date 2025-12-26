@@ -22,9 +22,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-24 flex items-center justify-between">
           <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => setActiveTab('home')}>
             <div className="w-10 h-10 saffron-gradient rounded-xl flex items-center justify-center text-white font-black text-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] group-hover:scale-110 transition-transform">
-              B
+              L
             </div>
-            <span className="text-xl sm:text-3xl font-black tracking-tighter text-white">Bharat<span className="text-pink-500">Yatra</span></span>
+            <span className="text-xl sm:text-3xl font-black tracking-tighter text-white">Local<span className="text-pink-500">Lens</span></span>
           </div>
           
           <nav className="hidden md:flex items-center space-x-8 lg:space-x-12">
@@ -81,7 +81,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-16 relative z-10">
           <div className="md:col-span-2">
-            <div className="text-3xl font-black mb-6 tracking-tighter">Bharat<span className="text-pink-500">Yatra</span> <span className="text-slate-700">IDP</span></div>
+            <div className="text-3xl font-black mb-6 tracking-tighter">Local<span className="text-pink-500">Lens</span> <span className="text-slate-700">IDP</span></div>
             <p className="text-slate-500 max-w-sm leading-relaxed text-base font-medium italic">
               Bespoke cultural expeditions at the intersection of deep-grounded AI and authentic local storytellers.
             </p>
@@ -104,7 +104,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           </div>
         </div>
         <div className="max-w-screen-2xl mx-auto px-4 mt-20 pt-12 border-t border-white/5 text-center text-slate-700 text-[10px] font-black uppercase tracking-[0.5em]">
-          © {new Date().getFullYear()} BharatYatra Intelligent Infrastructure.
+          © {new Date().getFullYear()} LocalLens Intelligent Infrastructure.
         </div>
       </footer>
     </div>

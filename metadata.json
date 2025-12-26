@@ -1,5 +1,5 @@
 {
-  "name": "IDP",
+  "name": "LocalLens",
   "description": "An Intelligent Digital Platform for Indian Tourism that bridges the last-mile gap by combining AI-driven personalized itineraries with a verified marketplace for local human guides.",
   "requestFramePermissions": [
     "geolocation",
