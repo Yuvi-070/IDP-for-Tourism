@@ -1,22 +1,47 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="bg-slate-950">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BharatYatra - Intelligent Digital Platform for Tourism</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
       body {
         font-family: 'Plus Jakarta Sans', sans-serif;
-        background-color: #fcfcfd;
+        background-color: #020617; /* slate-950 */
+        color: #f1f5f9; /* slate-100 */
+      }
+      .textile-gradient {
+        background: linear-gradient(135deg, #ec4899 0%, #f59e0b 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .rani-pink-bg {
+        background: #ec4899;
+      }
+      .gold-saffron-bg {
+        background: #f59e0b;
+      }
+      .rani-gradient {
+        background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
       }
       .saffron-gradient {
-        background: linear-gradient(135deg, #FF9933 0%, #FFCC33 100%);
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
       }
-      .indigo-gradient {
-        background: linear-gradient(135deg, #003366 0%, #0066CC 100%);
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0f172a;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #ec4899;
       }
     </style>
   <script type="importmap">
@@ -30,7 +55,7 @@
 }
 </script>
 </head>
-  <body>
+  <body class="selection:bg-pink-500 selection:text-white">
     <div id="root"></div>
   </body>
 </html>

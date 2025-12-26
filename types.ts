@@ -4,8 +4,9 @@ export interface Activity {
   location: string;
   description: string;
   estimatedCost: string;
-  estimatedTime: string; // New field: e.g., "2-3 hours"
+  estimatedTime: string; 
   culturalInsight: string;
+  mapUrl?: string;
 }
 
 export interface DayItinerary {
@@ -13,11 +14,30 @@ export interface DayItinerary {
   activities: Activity[];
 }
 
+export interface TravelOption {
+  mode: 'Bus' | 'Train' | 'Flight' | 'Private Taxi';
+  description: string;
+  estimatedCost: string;
+  duration: string;
+}
+
+export interface HotelRecommendation {
+  name: string;
+  description: string;
+  estimatedPricePerNight: string;
+  amenities: string[];
+  mapUrl?: string;
+}
+
 export interface Itinerary {
   destination: string;
   duration: number;
   theme: string;
   days: DayItinerary[];
+  startingLocation: string;
+  travelersCount: number;
+  travelOptions: TravelOption[];
+  hotelRecommendations: HotelRecommendation[];
 }
 
 export interface Guide {

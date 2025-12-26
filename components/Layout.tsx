@@ -17,53 +17,55 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   ];
 
   return (
-    <div className="min-h-screen flex flex-col overflow-x-hidden">
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setActiveTab('home')}>
-            <div className="w-8 h-8 sm:w-10 sm:h-10 saffron-gradient rounded-lg sm:rounded-xl flex items-center justify-center text-white font-bold text-lg sm:text-xl">
+    <div className="min-h-screen flex flex-col bg-slate-950 overflow-x-hidden">
+      <header className="bg-slate-950/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50 transition-all">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-24 flex items-center justify-between">
+          <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => setActiveTab('home')}>
+            <div className="w-10 h-10 saffron-gradient rounded-xl flex items-center justify-center text-white font-black text-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] group-hover:scale-110 transition-transform">
               B
             </div>
-            <span className="text-lg sm:text-2xl font-bold tracking-tight text-slate-900">Bharat<span className="text-orange-500">Yatra</span></span>
+            <span className="text-xl sm:text-3xl font-black tracking-tighter text-white">Bharat<span className="text-pink-500">Yatra</span></span>
           </div>
           
-          <nav className="hidden md:flex items-center space-x-6 lg:space-x-10">
+          <nav className="hidden md:flex items-center space-x-8 lg:space-x-12">
             {navItems.map(item => (
               <button 
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`font-semibold text-sm lg:text-base transition-colors ${activeTab === item.id ? 'text-orange-600' : 'text-gray-500 hover:text-orange-500'}`}
+                className={`text-[10px] lg:text-xs font-black uppercase tracking-[0.2em] transition-all relative py-2 ${activeTab === item.id ? 'text-pink-500' : 'text-slate-400 hover:text-white'}`}
               >
                 {item.label}
+                {activeTab === item.id && (
+                  <span className="absolute bottom-0 left-0 w-full h-0.5 rani-pink-bg rounded-full shadow-[0_0_10px_#ec4899]"></span>
+                )}
               </button>
             ))}
           </nav>
 
-          <div className="flex items-center space-x-3 sm:space-x-4">
-             <button className="hidden sm:block bg-slate-900 text-white px-4 lg:px-6 py-2 sm:py-2.5 rounded-full font-bold text-xs lg:text-sm hover:bg-slate-800 transition">
-              Sign In
+          <div className="flex items-center space-x-4">
+             <button className="hidden sm:block bg-white/5 border border-white/10 text-white px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest hover:bg-pink-600 hover:border-pink-500 transition-all">
+              Portal
             </button>
-            {/* Mobile Toggle */}
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 text-slate-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={mobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} /></svg>
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 text-white">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d={mobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} /></svg>
             </button>
           </div>
         </div>
 
         {/* Mobile Navigation */}
-        <div className={`md:hidden bg-white border-b border-gray-100 transition-all duration-300 overflow-hidden ${mobileMenuOpen ? 'max-h-64 py-4' : 'max-h-0'}`}>
-          <div className="px-4 space-y-4">
+        <div className={`md:hidden bg-slate-900/95 backdrop-blur-2xl border-b border-white/5 transition-all duration-500 overflow-hidden ${mobileMenuOpen ? 'max-h-96 py-8' : 'max-h-0'}`}>
+          <div className="px-6 space-y-6">
             {navItems.map(item => (
               <button 
                 key={item.id}
                 onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
-                className={`block w-full text-left font-bold text-sm py-2 ${activeTab === item.id ? 'text-orange-600' : 'text-slate-600'}`}
+                className={`block w-full text-left font-black text-xs uppercase tracking-widest py-3 ${activeTab === item.id ? 'text-pink-500' : 'text-slate-400'}`}
               >
                 {item.label}
               </button>
             ))}
-            <button className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-sm mt-2">
-              Sign In
+            <button className="w-full bg-pink-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl">
+              Portal Access
             </button>
           </div>
         </div>
@@ -73,33 +75,36 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         {children}
       </main>
 
-      <footer className="bg-slate-900 text-white py-12 lg:py-20">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-12">
+      <footer className="bg-slate-950 border-t border-white/5 text-white py-20 lg:py-32 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-pink-500/5 blur-[120px] rounded-full pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-orange-500/5 blur-[120px] rounded-full pointer-events-none"></div>
+        
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-16 relative z-10">
           <div className="md:col-span-2">
-            <div className="text-2xl font-black mb-4">BharatYatra IDP</div>
-            <p className="text-slate-400 max-w-sm leading-relaxed text-sm sm:text-base">
-              Empowering local experts and providing travelers with authentic, AI-enhanced human experiences across India.
+            <div className="text-3xl font-black mb-6 tracking-tighter">Bharat<span className="text-pink-500">Yatra</span> <span className="text-slate-700">IDP</span></div>
+            <p className="text-slate-500 max-w-sm leading-relaxed text-base font-medium italic">
+              Bespoke cultural expeditions at the intersection of deep-grounded AI and authentic local storytellers.
             </p>
           </div>
           <div>
-            <h4 className="font-bold mb-6 text-sm sm:text-base uppercase tracking-widest text-orange-500">Platform</h4>
-            <ul className="space-y-3 text-slate-400 text-sm sm:text-base">
-              <li><button onClick={() => setActiveTab('planner')} className="hover:text-white transition">AI Itinerary</button></li>
-              <li><button onClick={() => setActiveTab('guides')} className="hover:text-white transition">Marketplace</button></li>
-              <li><button onClick={() => setActiveTab('verification')} className="hover:text-white transition">Join as Guide</button></li>
+            <h4 className="font-black mb-8 text-[10px] uppercase tracking-[0.4em] text-pink-500">Expedition Nodes</h4>
+            <ul className="space-y-4 text-slate-400 text-xs font-black uppercase tracking-widest">
+              <li><button onClick={() => setActiveTab('planner')} className="hover:text-white transition">AI Blueprint</button></li>
+              <li><button onClick={() => setActiveTab('guides')} className="hover:text-white transition">Local Vault</button></li>
+              <li><button onClick={() => setActiveTab('verification')} className="hover:text-white transition">Apply: Master</button></li>
             </ul>
           </div>
           <div>
-            <h4 className="font-bold mb-6 text-sm sm:text-base uppercase tracking-widest text-orange-500">Legal</h4>
-            <ul className="space-y-3 text-slate-400 text-sm sm:text-base">
-              <li><button className="hover:text-white transition">Privacy Policy</button></li>
-              <li><button className="hover:text-white transition">Terms of Service</button></li>
-              <li><button className="hover:text-white transition">Safety Guidelines</button></li>
+            <h4 className="font-black mb-8 text-[10px] uppercase tracking-[0.4em] text-orange-500">Legal Protocol</h4>
+            <ul className="space-y-4 text-slate-400 text-xs font-black uppercase tracking-widest">
+              <li><button className="hover:text-white transition">Privacy Architecture</button></li>
+              <li><button className="hover:text-white transition">Ethics Matrix</button></li>
+              <li><button className="hover:text-white transition">Safety Standards</button></li>
             </ul>
           </div>
         </div>
-        <div className="max-w-screen-2xl mx-auto px-4 mt-12 sm:mt-20 pt-8 border-t border-slate-800 text-center text-slate-500 text-xs sm:text-sm font-medium">
-          © {new Date().getFullYear()} BharatYatra Intelligent Digital Platform. All rights reserved.
+        <div className="max-w-screen-2xl mx-auto px-4 mt-20 pt-12 border-t border-white/5 text-center text-slate-700 text-[10px] font-black uppercase tracking-[0.5em]">
+          © {new Date().getFullYear()} BharatYatra Intelligent Infrastructure.
         </div>
       </footer>
     </div>

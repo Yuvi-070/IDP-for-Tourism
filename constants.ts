@@ -3,21 +3,28 @@ import { Guide } from './types';
 
 export const INDIAN_DESTINATIONS = [
   "Agra (Taj Mahal)", "Amritsar (Golden Temple)", "Alleppey (Backwaters)", "Ajanta & Ellora Caves",
-  "Coorg (Coffee Plantations)", "Darjeeling (Tea Gardens)", "Goa (Beaches & Churches)", 
-  "Gokarna (Peaceful Beaches)", "Hampi (Vijayanagara Ruins)", "Hyderabad (Pearl City)",
-  "Jaipur (Pink City)", "Jaisalmer (Golden City)", "Jodhpur (Blue City)", "Kochi (Queen of Arabian Sea)", 
-  "Khajuraho (Stone Carvings)", "Kanyakumari (Land's End)", "Ladakh (Moonland)", "Lakshadweep Islands",
-  "Madurai (Temple City)", "Manali (Himalayan Retreat)", "Munnar (Tea Estates)", "Mysuru (Palace City)",
-  "Mahabalipuram (Shore Temples)", "Pondicherry (French Colony)", "Pushkar (Sacred Lake)",
-  "Rishikesh (Yoga Capital)", "Ranthambore (Tiger Safari)", "Shillong (Scotland of East)",
-  "Shimla (Summer Capital)", "Spiti Valley (Cold Desert)", "Tawang (Monastery Hills)",
-  "Udaipur (City of Lakes)", "Varanasi (Spiritual Capital)", "Ziro Valley (Music & Nature)"
-].sort();
+  "Ayodhya (Ram Mandir)", "Badrinath (Himalayan Temple)", "Chikmagalur (Coffee Land)", "Coorg (Coffee Plantations)", 
+  "Darjeeling (Tea Gardens)", "Dharamshala (Little Lhasa)", "Goa (Beaches & Churches)", "Gokarna (Peaceful Beaches)", 
+  "Gulmarg (Winter Wonderland)", "Hampi (Vijayanagara Ruins)", "Hyderabad (Pearl City)",
+  "Jaipur (Pink City)", "Jaisalmer (Golden City)", "Jodhpur (Blue City)", "Kaziranga (Wild Rhino)",
+  "Kedarnath (Shiva's Abode)", "Kevadia (Statue of Unity)", "Kochi (Queen of Arabian Sea)", 
+  "Khajuraho (Stone Carvings)", "Kanyakumari (Land's End)", "Kumarakom (Backwaters)", 
+  "Ladakh (Moonland)", "Lakshadweep Islands", "Madurai (Temple City)", 
+  "Manali (Himalayan Retreat)", "Munnar (Tea Estates)", "Mysuru (Palace City)",
+  "Mahabalipuram (Shore Temples)", "Pahalgam (Valley of Shepherds)", "Pondicherry (French Colony)", 
+  "Pushkar (Sacred Lake)", "Rishikesh (Yoga Capital)", "Ranthambore (Tiger Safari)", 
+  "Shillong (Scotland of East)", "Shimla (Summer Capital)", "Spiti Valley (Cold Desert)", 
+  "Srinagar (Dal Lake)", "Tawang (Monastery Hills)", "Udaipur (City of Lakes)", 
+  "Varanasi (Spiritual Capital)", "Varkala (Cliff Beaches)", "Wayanad (Green Paradise)", 
+  "Ziro Valley (Music & Nature)", "Other (Manual Entry)"
+].sort((a, b) => a === "Other (Manual Entry)" ? 1 : b === "Other (Manual Entry)" ? -1 : a.localeCompare(b));
 
 export const THEMES = [
-  "Spiritual & Religious", "Heritage & Architecture", 
-  "Culinary & Foodie", "Adventure & Nature", "Art & Craftsmanship",
-  "Wellness & Yoga", "Wildlife & Photography", "Slow Travel & Local Life"
+  "Spiritual & Sacred", "Heritage & Royal Architecture", "Culinary & Spice Trails", 
+  "Himalayan Adventure", "Artisanal Crafts & Textiles", "Vedic Wellness & Yoga", 
+  "Tiger Safaris & Wildlife", "Rural Life & Slow Travel", "Luxury & Palatial Leisure",
+  "Hidden Gems & Forgotten Ruins", "Off-the-beaten Path", "Modern India & Nightlife", 
+  "Eco-Tourism & Conservation", "Festival & Folk Culture", "Coastal Serenity"
 ];
 
 export const MOCK_GUIDES: Guide[] = [
