@@ -1,6 +1,6 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
-import { Itinerary, Activity } from "../types";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { Itinerary, Activity, HotelRecommendation } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
@@ -119,8 +119,16 @@ export const generateItineraryFromPrompt = async (prompt: string): Promise<Itine
   return callWithRetry(async () => {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Synthesize a professional travel itinerary based on this intent: "${prompt}". 
-      Include travel options from the user's inferred starting point and hotel recommendations with map links.`,
+      contents: `Synthesize a comprehensive, professional travel itinerary based on this user intent: "${prompt}". 
+
+      INSTRUCTIONS:
+      1. Identify the target destination and inferred starting location. If not specified, default starting location to Mumbai.
+      2. Default travelers count to 2 if not specified.
+      3. Default duration to 3 days if not specified.
+      4. Create a detailed day-by-day plan with specific activities and times.
+      5. Provide travel options (Flight/Train/Bus) from the starting location to the destination.
+      6. Provide 3 high-quality hotel recommendations with description and amenities.
+      7. Strictly follow the provided JSON schema. Ensure all fields are populated correctly with logical data even if the user prompt is brief.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: ITINERARY_SCHEMA,
@@ -129,6 +137,104 @@ export const generateItineraryFromPrompt = async (prompt: string): Promise<Itine
     });
 
     return JSON.parse(response.text) as Itinerary;
+  });
+};
+
+export const transcribeAudio = async (base64Data: string, mimeType: string): Promise<string> => {
+  return callWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: {
+        parts: [
+          { inlineData: { data: base64Data, mimeType: mimeType } },
+          { text: "Transcribe the following audio precisely. Provide only the transcribed text." }
+        ]
+      }
+    });
+    return response.text || "";
+  });
+};
+
+export const generateSpeech = async (text: string): Promise<string> => {
+  return callWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: `Read this travel insight warmly: ${text}` }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Charon' },
+          },
+        },
+      },
+    });
+    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+  });
+};
+
+export const chatWithLocalAI = async (message: string, context: string) => {
+  return callWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `You are the LocalLens AI Concierge. A high-end Indian tourism assistant. 
+      Context: ${context}.
+      User Message: ${message}.
+      Provide accurate, culturally deep, and helpful responses. Use Google Search and Maps tools as needed.`,
+      config: { 
+        tools: [{ googleSearch: {} }, { googleMaps: {} }] 
+      }
+    });
+    return response.text;
+  });
+};
+
+export const analyzeLocationImage = async (base64Image: string, mimeType: string) => {
+  return callWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: {
+        parts: [
+          { inlineData: { data: base64Image, mimeType: mimeType } }, 
+          { text: "Identify this landmark or location in India. Provide a rich cultural context and why it is significant for a traveler." }
+        ],
+      },
+    });
+    return response.text;
+  });
+};
+
+export const translateText = async (text: string, targetLanguage: string) => {
+  return callWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Translate the following text to ${targetLanguage}. Maintain the cultural nuance: ${text}`,
+    });
+    return response.text;
+  });
+}
+
+export const refreshHotelRecommendations = async (
+  destination: string,
+  hotelStars: number,
+  excludedHotels: string[]
+): Promise<HotelRecommendation[]> => {
+  return callWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Suggest 3 alternative ${hotelStars}-star hotel recommendations in ${destination}.
+      IMPORTANT: Do NOT include any of these hotels: ${excludedHotels.join(", ")}.
+      Provide fresh options with Google Maps search links.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: ITINERARY_SCHEMA.properties.hotelRecommendations.items
+        },
+        tools: [{ googleSearch: {} }]
+      }
+    });
+    return JSON.parse(response.text) as HotelRecommendation[];
   });
 };
 
@@ -187,36 +293,3 @@ export const getIconicHotspots = async (category: string = "trending") => {
       }));
   });
 };
-
-export const chatWithLocalAI = async (message: string, context: string) => {
-  return callWithRetry(async () => {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `Concierge mode. User: ${message}. Context: ${context}.`,
-      config: { tools: [{ googleMaps: {} }] }
-    });
-    return response.text;
-  });
-};
-
-export const analyzeLocationImage = async (base64Image: string, mimeType: string) => {
-  return callWithRetry(async () => {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: {
-        parts: [{ inlineData: { data: base64Image, mimeType: mimeType } }, { text: "Identify this landmark in India." }],
-      },
-    });
-    return response.text;
-  });
-};
-
-export const translateText = async (text: string, targetLanguage: string) => {
-  return callWithRetry(async () => {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Translate to ${targetLanguage}: ${text}`,
-    });
-    return response.text;
-  });
-}

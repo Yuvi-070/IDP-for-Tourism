@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Itinerary } from '../types';
 
 interface TripDetailsProps {
@@ -8,82 +8,64 @@ interface TripDetailsProps {
 }
 
 const TripDetails: React.FC<TripDetailsProps> = ({ itinerary, onBack }) => {
+  const [expandedTravelIdx, setExpandedTravelIdx] = useState<number | null>(null);
+  const [expandedHotelIdx, setExpandedHotelIdx] = useState<number | null>(null);
+
   return (
-    <div className="bg-slate-950 min-h-screen text-slate-100 py-12 md:py-32">
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 animate-in fade-in zoom-in duration-1000">
-        <div className="bg-slate-900/60 backdrop-blur-3xl rounded-[3rem] md:rounded-[5rem] shadow-[0_50px_100px_rgba(0,0,0,0.5)] overflow-hidden border border-white/5">
+    <div className="bg-slate-950 min-h-screen text-slate-100 py-6 md:py-12">
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 animate-in fade-in zoom-in duration-700">
+        <style>{`
+          .expand-transition {
+            transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+          }
+        `}</style>
+        
+        <div className="bg-slate-900/60 backdrop-blur-3xl rounded-[2.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-white/5">
           {/* Header */}
-          <div className="bg-slate-900 p-8 sm:p-20 lg:p-32 text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-pink-500/10 rounded-full blur-[150px] translate-x-1/3 -translate-y-1/3"></div>
+          <div className="bg-slate-900 p-8 sm:p-14 lg:p-20 text-white relative overflow-hidden border-b border-white/5">
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-pink-500/10 rounded-full blur-[120px] translate-x-1/3 -translate-y-1/3"></div>
             
-            <button onClick={onBack} className="relative z-10 flex items-center space-x-4 mb-12 sm:mb-20 font-black uppercase text-[10px] sm:text-xs tracking-[0.4em] group text-slate-500 hover:text-pink-500 transition-all">
-              <svg className="w-5 h-5 transition-transform group-hover:-translate-x-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-              <span>Recalibrate Sequence</span>
+            <button onClick={onBack} className="relative z-10 flex items-center space-x-3 mb-8 font-black uppercase text-[10px] tracking-[0.3em] group text-slate-500 hover:text-pink-500 transition-all">
+              <svg className="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+              <span>Back to Blueprint</span>
             </button>
             
             <div className="relative z-10">
-              <span className="text-pink-500 font-black uppercase tracking-[0.5em] text-[10px] sm:text-sm mb-6 block">Confirmed Heritage Protocol</span>
-              <h2 className="text-5xl sm:text-8xl lg:text-[10rem] font-black mb-10 tracking-tighter leading-[0.85] text-white">{itinerary.destination.split(' (')[0]}</h2>
-              <div className="h-2 w-32 bg-gradient-to-r from-pink-600 to-orange-500 mb-12 rounded-full"></div>
-              <p className="text-slate-400 text-lg sm:text-2xl lg:text-3xl font-bold italic max-w-4xl leading-relaxed tracking-tight">
-                A bespoke {itinerary.duration}-day cultural odyssey synthesized across Bharat's most iconic heritage nodes.
+              <span className="text-pink-500 font-black uppercase tracking-[0.4em] text-[10px] sm:text-xs mb-3 block">Heritage Expedition Confirmed</span>
+              <h2 className="text-4xl sm:text-6xl lg:text-8xl font-black mb-4 tracking-tighter leading-[0.85] text-white">{itinerary.destination.split(' (')[0]}</h2>
+              <div className="h-2 w-32 bg-gradient-to-r from-pink-600 to-orange-500 mb-8 rounded-full"></div>
+              <p className="text-slate-400 text-lg sm:text-xl lg:text-2xl font-bold italic max-w-2xl leading-relaxed">
+                A tailored {itinerary.duration}-day cultural odyssey synthesized for {itinerary.travelersCount} travelers starting from {itinerary.startingLocation}.
               </p>
             </div>
           </div>
 
-          <div className="p-8 sm:p-20 lg:p-32 space-y-24 sm:space-y-48">
+          <div className="p-8 sm:p-14 space-y-16">
             {itinerary.days.map((day) => (
               <div key={day.day}>
-                <div className="flex items-center space-x-6 sm:space-x-16 mb-16 sm:mb-32">
-                  <div className="flex flex-col">
-                     <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-700">Expedition Cycle</span>
-                     <span className="text-6xl sm:text-8xl md:text-[10rem] font-black textile-gradient leading-none tracking-tighter">0{day.day}</span>
-                  </div>
+                <div className="flex items-center space-x-6 mb-10">
+                  <span className="text-5xl sm:text-8xl font-black textile-gradient tracking-tighter">0{day.day}</span>
                   <div className="h-px flex-grow bg-white/5"></div>
-                  <div className="text-right">
-                     <span className="text-[11px] font-black uppercase tracking-[0.4em] text-pink-500">{day.activities.length} Waypoints</span>
-                  </div>
+                  <span className="text-xs font-black uppercase text-pink-500 tracking-widest">{day.activities.length} Waypoints</span>
                 </div>
 
-                <div className="space-y-16 sm:space-y-32 relative">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {day.activities.map((activity, idx) => (
-                    <div key={idx} className="flex flex-col lg:flex-row gap-10 sm:gap-20 group relative">
-                      <div className="lg:w-40 flex-shrink-0 text-left lg:text-right pt-8">
-                        <span className="text-xl sm:text-3xl font-black text-white block mb-2 tracking-tighter">{activity.time}</span>
-                        <span className="text-[10px] font-black text-orange-500 block uppercase tracking-widest">{activity.estimatedTime}</span>
+                    <div key={idx} className="bg-slate-900/40 p-8 rounded-[2rem] border border-white/5 hover:border-pink-500/20 transition-all flex flex-col justify-between group h-full shadow-xl">
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-2 text-white font-black text-sm">
+                             <svg className="w-4 h-4 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                             <span>{activity.time}</span>
+                          </div>
+                          <span className="text-[10px] font-black text-emerald-400 uppercase bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">{activity.estimatedCost}</span>
+                        </div>
+                        <h4 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-3 truncate group-hover:text-pink-500 transition-colors">{activity.location}</h4>
+                        <p className="text-sm sm:text-base text-slate-400 font-bold italic line-clamp-3 leading-relaxed mb-6 group-hover:line-clamp-none transition-all">"{activity.description}"</p>
                       </div>
-                      
-                      <div className="flex-grow space-y-10">
-                        <div className="flex items-start justify-between flex-wrap gap-6">
-                          <div className="space-y-2">
-                             <h4 className="text-2xl sm:text-5xl lg:text-6xl font-black text-white tracking-tighter group-hover:text-pink-500 transition-colors duration-700 leading-tight">{activity.location}</h4>
-                          </div>
-                          
-                          <div className="flex items-center space-x-4">
-                            <button 
-                              onClick={() => window.open(activity.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location)}`, '_blank')}
-                              className="bg-white/5 hover:bg-pink-600 border border-white/10 hover:border-pink-500 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all shadow-xl flex items-center space-x-2"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                              </svg>
-                              <span>Maps</span>
-                            </button>
-                            <span className="text-emerald-400 text-[10px] font-black uppercase bg-emerald-500/10 px-5 py-2 rounded-xl border border-emerald-500/20 shadow-xl">{activity.estimatedCost}</span>
-                          </div>
-                        </div>
-                        
-                        <p className="text-slate-400 leading-relaxed font-bold text-base sm:text-2xl italic tracking-tight max-w-5xl">"{activity.description}"</p>
-                        
-                        <div className="bg-slate-950/40 p-8 sm:p-16 rounded-[2.5rem] sm:rounded-[4rem] border border-white/5 shadow-inner relative overflow-hidden group/insight hover:border-pink-500/20 transition-all duration-500">
-                          <div className="absolute top-0 right-0 w-32 sm:w-64 h-32 sm:h-64 bg-pink-500/5 rounded-bl-full pointer-events-none"></div>
-                          <div className="flex items-center space-x-4 mb-8 text-pink-500 relative z-10">
-                            <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1a1 1 0 112 0v1a1 1 0 11-2 0zM13.536 14.95a1 1 0 011.414 0l.707.707a1 1 0 11-1.414 1.414l-.707-.707a1 1 0 010-1.414zM15.657 18.343a1 1 0 01-1.414 0l-.707-.707a1 1 0 111.414-1.414l.707.707a1 1 0 010 1.414z" /></svg>
-                            <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.4em]">Resonance Analysis</span>
-                          </div>
-                          <p className="text-xl sm:text-3xl lg:text-4xl text-slate-200 italic font-black leading-relaxed tracking-tighter relative z-10">"{activity.culturalInsight}"</p>
-                        </div>
+                      <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-orange-500 tracking-widest">{activity.estimatedTime}</span>
+                        <button onClick={() => window.open(activity.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location)}`, '_blank')} className="text-[10px] font-black uppercase text-pink-500 hover:text-white transition-colors">Show Map</button>
                       </div>
                     </div>
                   ))}
@@ -91,80 +73,69 @@ const TripDetails: React.FC<TripDetailsProps> = ({ itinerary, onBack }) => {
               </div>
             ))}
 
-            {/* Logistics & Stay Section - Final Journey View */}
-            <div className="pt-24 sm:pt-48 border-t border-white/5 space-y-16">
-              <div className="flex items-center space-x-6">
-                <span className="text-4xl sm:text-6xl font-black text-white tracking-tighter">Logistics <span className="textile-gradient">& Stay</span></span>
-                <div className="h-px flex-grow bg-white/5"></div>
+            {/* Logistics & Stay Summary - Redesigned Expansion UI */}
+            <div className="pt-16 border-t border-white/5 grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-6">
+                <h5 className="text-xs font-black uppercase tracking-[0.3em] text-pink-500 ml-1">Logistics Architecture</h5>
+                <div className="space-y-4">
+                  {itinerary.travelOptions.map((opt, i) => {
+                    const isExpanded = expandedTravelIdx === i;
+                    return (
+                      <div key={i} className={`bg-slate-900/80 p-6 rounded-[2rem] border transition-all cursor-pointer ${isExpanded ? 'border-pink-500 shadow-2xl bg-slate-800' : 'border-white/5 hover:border-pink-500/20'}`} onClick={() => setExpandedTravelIdx(isExpanded ? null : i)}>
+                         <div className="flex justify-between items-center mb-1">
+                            <h6 className="text-base font-black text-white uppercase">{opt.mode}</h6>
+                            <span className="text-sm font-black text-emerald-400">{opt.estimatedCost}</span>
+                         </div>
+                         <p className={`text-sm text-slate-400 font-bold italic leading-tight ${isExpanded ? '' : 'truncate'}`}>{opt.description}</p>
+                         {isExpanded && (
+                           <div className="mt-4 pt-4 border-t border-white/5 space-y-4 animate-in fade-in">
+                              <div className="flex justify-between text-[10px] font-black uppercase text-pink-500 tracking-widest">
+                                <span>Cycle Duration: {opt.duration}</span>
+                              </div>
+                              <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/search?q=book+${opt.mode.toLowerCase()}+from+${itinerary.startingLocation}+to+${itinerary.destination.split(' (')[0]}`, '_blank'); }} className="w-full py-4 bg-pink-600 hover:bg-pink-500 rounded-xl text-white text-[10px] font-black uppercase shadow-lg transition-all active:scale-95">Verify & Book</button>
+                           </div>
+                         )}
+                         {!isExpanded && <p className="text-[10px] text-slate-600 font-black italic mt-2">Expand for logistics analysis & booking...</p>}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-20">
-                {/* Travel Route */}
-                <div className="space-y-8">
-                  <label className="block text-[10px] font-black uppercase tracking-[0.4em] text-pink-500 ml-2">Expedition Route from {itinerary.startingLocation}</label>
-                  <div className="space-y-6">
-                    {itinerary.travelOptions.map((opt, i) => (
-                      <div key={i} className="bg-slate-900/60 p-8 sm:p-12 rounded-[2.5rem] border border-white/5 group hover:border-pink-500/30 transition-all shadow-2xl">
-                        <div className="flex items-center justify-between mb-6">
-                          <span className="text-xs font-black uppercase tracking-widest text-white px-5 py-2.5 bg-pink-600 rounded-xl">{opt.mode}</span>
-                          <span className="text-emerald-400 font-black text-2xl">{opt.estimatedCost}</span>
-                        </div>
-                        <p className="text-slate-400 font-bold italic text-base leading-relaxed mb-6">"{opt.description}"</p>
-                        <div className="flex items-center space-x-3 text-slate-500 text-xs font-black uppercase tracking-widest">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                          <span>{opt.duration} Total Duration</span>
-                        </div>
+              <div className="space-y-6">
+                <h5 className="text-xs font-black uppercase tracking-[0.3em] text-orange-500 ml-1">Sanctuary Stays</h5>
+                <div className="space-y-4">
+                  {itinerary.hotelRecommendations.map((hotel, i) => {
+                    const isExpanded = expandedHotelIdx === i;
+                    return (
+                      <div key={i} className={`bg-slate-900/80 p-6 rounded-[2rem] border transition-all cursor-pointer ${isExpanded ? 'border-orange-500 shadow-2xl bg-slate-800' : 'border-white/5 hover:border-orange-500/20'}`} onClick={() => setExpandedHotelIdx(isExpanded ? null : i)}>
+                         <div className="flex justify-between items-start mb-1">
+                            <h6 className="text-base font-black text-white truncate w-2/3">{hotel.name}</h6>
+                            <span className="text-sm font-black text-emerald-400">{hotel.estimatedPricePerNight}</span>
+                         </div>
+                         <p className={`text-sm text-slate-400 font-bold italic leading-tight ${isExpanded ? '' : 'truncate'}`}>{hotel.description}</p>
+                         {isExpanded && (
+                           <div className="mt-4 pt-4 border-t border-white/5 space-y-4 animate-in fade-in">
+                             <div className="flex flex-wrap gap-2">
+                               {hotel.amenities.map(a => <span key={a} className="bg-white/5 px-3 py-1.5 rounded-lg text-[9px] text-slate-500 uppercase font-black border border-white/5">{a}</span>)}
+                             </div>
+                             <button onClick={(e) => { e.stopPropagation(); window.open(hotel.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name + " " + itinerary.destination)}`, '_blank'); }} className="w-full py-4 bg-orange-600 hover:bg-orange-500 rounded-xl text-white font-black text-[10px] uppercase transition-all shadow-lg active:scale-95">Explore Sanctuary Site</button>
+                           </div>
+                         )}
+                         {!isExpanded && <p className="text-[10px] text-slate-600 font-black italic mt-2">Expand for amenities & location narrative...</p>}
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Hotel Picks */}
-                <div className="space-y-8">
-                  <label className="block text-[10px] font-black uppercase tracking-[0.4em] text-orange-500 ml-2">Sanctuary Recommendations</label>
-                  <div className="space-y-6">
-                    {itinerary.hotelRecommendations.map((hotel, i) => (
-                      <div key={i} className="bg-slate-900/60 p-8 sm:p-12 rounded-[2.5rem] border border-white/5 group hover:border-orange-500/30 transition-all shadow-2xl">
-                        <div className="flex items-start justify-between mb-6">
-                          <h5 className="font-black text-2xl text-white tracking-tight pr-4">{hotel.name}</h5>
-                          <div className="flex flex-col items-end space-y-3">
-                            <span className="text-emerald-400 font-black text-lg">{hotel.estimatedPricePerNight}<span className="text-slate-600 text-[10px] uppercase ml-1">/nt</span></span>
-                            <button 
-                              onClick={() => window.open(hotel.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name + " " + itinerary.destination)}`, '_blank')}
-                              className="bg-white/5 hover:bg-pink-600 border border-white/10 hover:border-pink-500 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all flex items-center space-x-2 shadow-lg"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                              </svg>
-                              <span>Maps</span>
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-slate-400 font-bold italic text-base leading-relaxed mb-8">"{hotel.description}"</p>
-                        <div className="flex flex-wrap gap-3">
-                          {hotel.amenities.map(amn => (
-                            <span key={amn} className="bg-white/5 text-[9px] font-black text-slate-500 uppercase tracking-widest px-4 py-2 rounded-xl border border-white/5">{amn}</span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
-            <div className="pt-24 sm:pt-48 border-t border-white/5 flex flex-col items-center text-center">
-               <div className="w-20 h-20 sm:w-32 sm:h-32 bg-gradient-to-br from-pink-600 to-orange-500 rounded-3xl sm:rounded-[3rem] flex items-center justify-center text-white mb-10 sm:mb-16 shadow-[0_30px_60px_rgba(236,72,153,0.3)]">
-                 <svg className="w-10 h-10 sm:w-16 sm:h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04M12 20.944a11.955 11.955 0 01-8.618-3.04" /></svg>
-               </div>
-              <h5 className="text-4xl sm:text-7xl lg:text-8xl font-black text-white mb-8 tracking-tighter leading-none">Manifest The <span className="textile-gradient">Odyssey</span></h5>
-              <p className="text-slate-500 mb-16 font-bold max-w-3xl text-lg sm:text-2xl leading-relaxed italic">
-                The blueprint is complete. Secure the master storytelling link to activate this expedition on the ground.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-8 w-full sm:w-auto">
-                <button className="bg-pink-600 text-white px-12 sm:px-20 py-6 rounded-full font-black text-sm sm:text-xl shadow-[0_20px_50px_rgba(236,72,153,0.4)] hover:scale-105 transition-all active:scale-95 uppercase tracking-[0.3em]">Secure Guide Link</button>
-                <button className="bg-white/5 text-white border border-white/10 px-12 sm:px-20 py-6 rounded-full font-black text-sm sm:text-xl hover:bg-white/10 transition-all active:scale-95 uppercase tracking-[0.3em]">Export Matrix (PDF)</button>
+            <div className="pt-20 flex flex-col items-center text-center">
+              <h5 className="text-3xl sm:text-5xl font-black text-white mb-4 uppercase tracking-tighter">Manifest the Odyssey</h5>
+              <p className="text-slate-500 mb-10 font-bold text-lg italic max-w-2xl">Download your heritage matrix and sync with verified master storytellers on the ground.</p>
+              <div className="flex flex-col sm:flex-row gap-6 w-full sm:w-auto">
+                <button className="bg-pink-600 text-white px-12 py-5 rounded-full font-black text-sm sm:text-base shadow-[0_20px_50px_rgba(236,72,153,0.3)] hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.3em]">Secure Master Guide</button>
+                <button className="bg-white/5 text-white border border-white/10 px-12 py-5 rounded-full font-black text-sm sm:text-base hover:bg-white/10 transition-all active:scale-95 uppercase tracking-[0.3em]">Export Odyssey Blueprint</button>
               </div>
             </div>
           </div>
