@@ -41,12 +41,12 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-10">
                   {[
                     { name: "Jaipur (Pink City)", img: "https://images.unsplash.com/photo-1599661046289-e31897846e41?auto=format&fit=crop&q=80&w=800" },
-                    { name: "Varanasi (Spiritual Capital)", img: "https://images.unsplash.com/photo-1561361513-2d000a50f0dc?auto=format&fit=crop&q=80&w=800" },
+                    { name: "Varanasi (Spiritual Capital)", img: "https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?auto=format&fit=crop&q=80&w=800" },
                     { name: "Ladakh (Moonland)", img: "https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?auto=format&fit=crop&q=80&w=800" },
                     { name: "Kochi (Queen of Arabian Sea)", img: "https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&q=80&w=800" },
-                    { name: "Hampi (Ancient Ruins)", img: "https://images.unsplash.com/photo-1581390129939-946f9a890a7f?auto=format&fit=crop&q=80&w=800" },
-                    { name: "Munnar (Tea Estates)", img: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=800" },
-                    { name: "Udaipur (City of Lakes)", img: "https://images.unsplash.com/photo-1585121283832-1593c6225d6b?auto=format&fit=crop&q=80&w=800" },
+                    { name: "Hampi (Ancient Ruins)", img: "https://images.unsplash.com/photo-1620766182966-c6eb5ed2b788?auto=format&fit=crop&q=80&w=800" },
+                    { name: "Munnar (Tea Estates)", img: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&q=80&w=800" },
+                    { name: "Udaipur (City of Lakes)", img: "https://images.unsplash.com/photo-1615874959474-d609969a20ed?auto=format&fit=crop&q=80&w=800" },
                     { name: "Amritsar (Golden Temple)", img: "https://images.unsplash.com/photo-1514222134-b57cbb8ce073?auto=format&fit=crop&q=80&w=800" }
                   ].map((city) => (
                     <button 

@@ -84,7 +84,6 @@ const ChatInterface: React.FC = () => {
     }
   };
 
-  // Audio Processing Helpers
   function decode(base64: string) {
     const binaryString = atob(base64);
     const len = binaryString.length;
@@ -117,7 +116,7 @@ const ChatInterface: React.FC = () => {
     const userMsg: ImageMessage = {
       id: Date.now().toString(),
       sender: 'user',
-      text: currentInput || 'Deconstructing visual node...',
+      text: currentInput || 'Processing visual coordinate...',
       imagePreview: currentImage?.preview,
       timestamp: new Date()
     };
@@ -163,7 +162,6 @@ const ChatInterface: React.FC = () => {
     const msgIndex = messages.findIndex(m => m.id === msgId);
     if (msgIndex === -1) return;
 
-    // Set loading state for this message
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isTranslating: true } : m));
 
     try {
@@ -176,157 +174,131 @@ const ChatInterface: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 md:py-10 flex flex-col h-[96vh] bg-slate-950">
+    <div className="max-w-[1600px] mx-auto px-6 py-12 flex flex-col h-[92vh] bg-slate-950">
       <style>{`
-        .glass-panel {
+        .chat-glass {
           background: rgba(15, 23, 42, 0.4);
           backdrop-filter: blur(40px);
           border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
         }
-        .message-bubble-ai {
-          background: rgba(30, 41, 59, 0.5);
+        .ai-bubble {
+          background: rgba(30, 41, 59, 0.6);
           border: 1px solid rgba(255, 255, 255, 0.05);
-          box-shadow: 0 15px 40px -10px rgba(0, 0, 0, 0.4);
+          box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.4);
         }
-        .message-bubble-user {
-          background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
-          box-shadow: 0 15px 40px -10px rgba(236, 72, 153, 0.3);
+        .user-bubble {
+          background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
+          box-shadow: 0 20px 50px -10px rgba(236, 72, 153, 0.3);
         }
-        .typing-dot {
-          width: 8px;
-          height: 8px;
-          background-color: #ec4899;
-          border-radius: 50%;
-          animation: bounce 1.4s infinite ease-in-out both;
+        .typing-pulse {
+          animation: pulse-glow 2s infinite;
         }
-        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes bounce {
-          0%, 80%, 100% { transform: scale(0); }
-          40% { transform: scale(1.0); }
-        }
-        .input-bar-gradient {
-          background: linear-gradient(to bottom, transparent, rgba(2, 6, 23, 0.8));
+        @keyframes pulse-glow {
+          0%, 100% { opacity: 0.5; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.1); }
         }
       `}</style>
       
-      <div className="glass-panel rounded-[3rem] shadow-2xl flex flex-col overflow-hidden h-full relative border border-white/5">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-pink-500/5 blur-[150px] rounded-full pointer-events-none translate-x-1/2 -translate-y-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-orange-500/5 blur-[150px] rounded-full pointer-events-none -translate-x-1/2 translate-y-1/2"></div>
-
+      <div className="chat-glass rounded-[4rem] flex flex-col overflow-hidden h-full relative">
         {/* Header */}
-        <div className="bg-slate-900/30 p-8 md:p-10 flex items-center justify-between text-white flex-shrink-0 border-b border-white/5 relative z-10">
-          <div className="flex items-center space-x-8">
+        <div className="bg-slate-900/40 p-10 md:p-14 flex items-center justify-between text-white border-b border-white/5 relative z-10">
+          <div className="flex items-center space-x-10">
             <div className="relative">
-              <div className="w-14 h-14 saffron-gradient rounded-full flex items-center justify-center font-black text-2xl shadow-[0_0_25px_rgba(245,158,11,0.4)]">
+              <div className="w-16 h-16 rani-pink-bg rounded-[1.5rem] flex items-center justify-center font-black text-2xl shadow-3xl">
                 LL
               </div>
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-slate-900 rounded-full"></div>
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-slate-900 rounded-full shadow-lg"></div>
             </div>
             <div>
-              <h3 className="font-black text-xl md:text-2xl tracking-tighter">AI Journey <span className="textile-gradient">Concierge</span></h3>
-              <div className="flex items-center space-x-2 mt-1">
-                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-500">Neural Synthesis Active</span>
+              <h3 className="font-black text-3xl tracking-tighter">AI <span className="textile-gradient">Concierge</span></h3>
+              <div className="flex items-center space-x-3 mt-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-500">Neural Sync Active</span>
               </div>
             </div>
           </div>
-          <div className="flex items-center space-x-6">
-             <div className="hidden sm:flex flex-col items-end mr-6">
-                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Protocol Latency</span>
-                <span className="text-sm font-black text-emerald-400">Stable • 142ms</span>
+          <div className="flex items-center space-x-8">
+             <div className="hidden lg:flex flex-col items-end mr-8">
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Global Latency</span>
+                <span className="text-sm font-black text-emerald-400 tracking-tight">Stable • 142ms</span>
              </div>
-             <button className="text-slate-500 hover:text-pink-500 transition-all p-3 bg-white/5 rounded-full border border-white/5 shadow-inner">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+             <button className="text-slate-500 hover:text-white transition-all p-4 bg-white/5 rounded-2xl border border-white/10">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
              </button>
           </div>
         </div>
 
-        {/* Message Pool */}
-        <div ref={scrollRef} className="flex-grow overflow-y-auto p-8 md:p-14 space-y-14 scroll-smooth no-scrollbar relative z-10">
+        {/* Messages */}
+        <div ref={scrollRef} className="flex-grow overflow-y-auto p-10 md:p-20 space-y-16 no-scrollbar relative z-10">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[90%] sm:max-w-[75%] rounded-[2.5rem] md:rounded-[4rem] p-8 md:p-12 shadow-2xl relative group transition-all duration-700 hover:scale-[1.005] ${msg.sender === 'user' ? 'message-bubble-user text-white' : 'message-bubble-ai text-slate-100'}`}>
+              <div className={`max-w-[85%] sm:max-w-[70%] rounded-[3rem] p-10 sm:p-14 shadow-3xl relative transition-all duration-700 hover:translate-y-[-4px] ${msg.sender === 'user' ? 'user-bubble text-white' : 'ai-bubble text-slate-100'}`}>
                 
                 {msg.sender === 'ai' && (
-                  <div className="absolute -left-5 -top-5 w-12 h-12 saffron-gradient rounded-full flex items-center justify-center text-[11px] font-black text-white border-4 border-slate-900 shadow-2xl">AI</div>
+                  <div className="absolute -left-6 -top-6 w-14 h-14 rani-pink-bg rounded-2xl flex items-center justify-center text-[11px] font-black text-white border-4 border-slate-900 shadow-2xl">AI</div>
                 )}
 
                 {msg.imagePreview && (
-                  <div className="mb-10 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white/10 relative group/img">
-                    <img src={msg.imagePreview} alt="Node snapshot" className="w-full h-auto max-h-[500px] object-cover" />
-                    <div className="absolute inset-0 bg-pink-500/10 opacity-0 group-hover/img:opacity-100 transition-opacity"></div>
+                  <div className="mb-10 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white/10">
+                    <img src={msg.imagePreview} alt="Uploaded marker" className="w-full h-auto max-h-[600px] object-cover" />
                   </div>
                 )}
 
                 <div className="relative">
-                  <p className="text-lg md:text-2xl leading-relaxed font-bold italic whitespace-pre-wrap tracking-tight pr-12">
-                    {msg.sender === 'ai' ? (
-                      <span className="relative">
-                        <span className="absolute -left-6 top-0 text-pink-500 text-4xl opacity-30">"</span>
-                        {msg.text}
-                        <span className="absolute -right-6 bottom-0 text-pink-500 text-4xl opacity-30">"</span>
-                      </span>
-                    ) : msg.text}
+                  <p className="text-xl md:text-3xl leading-relaxed font-bold italic tracking-tight pr-14 whitespace-pre-wrap">
+                    {msg.text}
                   </p>
                   
                   {msg.sender === 'ai' && (
                     <button 
                       onClick={() => handleSpeechOutput(msg.id, msg.text)}
-                      className={`absolute right-0 top-0 p-3 rounded-full bg-white/5 border border-white/10 transition-all ${isPlaying === msg.id ? 'text-pink-500 scale-125' : 'text-slate-500 hover:text-pink-500'}`}
-                      title="Listen to original"
+                      className={`absolute right-0 top-0 p-4 rounded-2xl bg-white/5 border border-white/10 transition-all ${isPlaying === msg.id ? 'text-pink-500 scale-125' : 'text-slate-500 hover:text-pink-500'}`}
                     >
-                      <svg className={`w-5 h-5 ${isPlaying === msg.id ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      <svg className={`w-6 h-6 ${isPlaying === msg.id ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                       </svg>
                     </button>
                   )}
                 </div>
 
                 {msg.translatedText && (
-                  <div className="mt-10 pt-10 border-t border-white/10 italic text-base md:text-xl text-orange-400 font-bold tracking-tight relative pr-12">
-                    <span className="block font-black uppercase mb-4 text-[11px] tracking-[0.5em] text-pink-500">Linguistic Bridge Node:</span>
+                  <div className="mt-12 pt-12 border-t border-white/10 text-xl md:text-3xl text-orange-400 font-bold italic tracking-tight relative pr-14">
+                    <span className="block font-black uppercase mb-6 text-[11px] tracking-[0.5em] text-pink-500">Linguistic Bridge Node:</span>
                     {msg.translatedText}
                     <button 
                       onClick={() => handleSpeechOutput(msg.id + '_trans', msg.translatedText!)}
-                      className={`absolute right-0 top-14 p-3 rounded-full bg-white/5 border border-white/10 transition-all ${isPlaying === msg.id + '_trans' ? 'text-pink-500 scale-125' : 'text-slate-500 hover:text-pink-500'}`}
-                      title="Listen to translation"
+                      className={`absolute right-0 top-16 p-4 rounded-2xl bg-white/5 border border-white/10 transition-all ${isPlaying === msg.id + '_trans' ? 'text-pink-500 scale-125' : 'text-slate-500 hover:text-pink-500'}`}
                     >
-                      <svg className={`w-5 h-5 ${isPlaying === msg.id + '_trans' ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      <svg className={`w-6 h-6 ${isPlaying === msg.id + '_trans' ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                       </svg>
                     </button>
                   </div>
                 )}
 
-                <div className={`text-[10px] font-black uppercase tracking-widest mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${msg.sender === 'user' ? 'justify-end text-white/40' : 'text-slate-600'}`}>
-                  <span>{msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <div className={`mt-10 pt-10 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-6 ${msg.sender === 'user' ? 'text-white/40' : 'text-slate-600'}`}>
+                  <span className="text-[10px] font-black uppercase tracking-widest">{msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   {msg.sender === 'ai' && (
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                      <div className="relative flex items-center bg-white/5 rounded-full px-4 py-1 border border-white/10">
+                    <div className="flex flex-wrap items-center gap-6">
+                      <div className="flex bg-black/40 rounded-full px-6 py-2 border border-white/5">
                         <input 
                           type="text" 
-                          placeholder="Search language..."
+                          placeholder="Search target language..."
                           value={customLanguage[msg.id] || ''}
                           onChange={(e) => setCustomLanguage(prev => ({ ...prev, [msg.id]: e.target.value }))}
                           onKeyDown={(e) => e.key === 'Enter' && handleTranslate(msg.id)}
-                          className="bg-transparent border-none outline-none text-[10px] font-black uppercase text-white placeholder:text-slate-700 w-24 sm:w-32"
+                          className="bg-transparent border-none outline-none text-[10px] font-black uppercase text-white placeholder:text-slate-700 w-32"
                         />
                         <button 
                           onClick={() => handleTranslate(msg.id)}
-                          disabled={msg.isTranslating}
-                          className="ml-2 text-pink-500 hover:text-pink-400 transition-colors disabled:opacity-30"
+                          className="ml-4 text-pink-500 hover:scale-125 transition-all"
                         >
-                          {msg.isTranslating ? (
-                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
-                          )}
+                          {msg.isTranslating ? '...' : '→'}
                         </button>
                       </div>
-                      <div className="flex gap-4">
-                        <button onClick={() => { setCustomLanguage(prev => ({ ...prev, [msg.id]: 'Hindi' })); handleTranslate(msg.id); }} className="hover:text-pink-500 transition-all">Hindi</button>
-                        <button onClick={() => { setCustomLanguage(prev => ({ ...prev, [msg.id]: 'Tamil' })); handleTranslate(msg.id); }} className="hover:text-pink-500 transition-all">Tamil</button>
-                        <button onClick={() => { setCustomLanguage(prev => ({ ...prev, [msg.id]: 'French' })); handleTranslate(msg.id); }} className="hover:text-pink-500 transition-all">French</button>
+                      <div className="flex gap-6 text-[10px] font-black uppercase tracking-widest">
+                        <button onClick={() => { setCustomLanguage(prev => ({ ...prev, [msg.id]: 'Hindi' })); handleTranslate(msg.id); }} className="hover:text-pink-500 transition-colors">Hindi</button>
+                        <button onClick={() => { setCustomLanguage(prev => ({ ...prev, [msg.id]: 'French' })); handleTranslate(msg.id); }} className="hover:text-pink-500 transition-colors">French</button>
                       </div>
                     </div>
                   )}
@@ -336,43 +308,21 @@ const ChatInterface: React.FC = () => {
           ))}
           {isTyping && (
             <div className="flex justify-start">
-              <div className="message-bubble-ai rounded-[2rem] px-8 py-6 border border-white/5 flex items-center space-x-6">
+              <div className="ai-bubble rounded-[2.5rem] px-10 py-8 border border-white/5 flex items-center space-x-6">
                 <div className="flex space-x-2">
-                  <div className="typing-dot"></div>
-                  <div className="typing-dot"></div>
-                  <div className="typing-dot"></div>
+                  <div className="w-2.5 h-2.5 bg-pink-500 rounded-full typing-pulse"></div>
+                  <div className="w-2.5 h-2.5 bg-pink-500 rounded-full typing-pulse delay-75"></div>
+                  <div className="w-2.5 h-2.5 bg-pink-500 rounded-full typing-pulse delay-150"></div>
                 </div>
-                <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.5em] ml-2">Synthesizing...</span>
+                <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.5em]">Synthesizing Narrative...</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Selected Image Preview */}
-        {selectedImage && (
-          <div className="absolute bottom-40 left-12 z-20 animate-in fade-in slide-in-from-bottom-10 duration-700">
-            <div className="bg-slate-900/95 backdrop-blur-2xl p-6 rounded-[2.5rem] shadow-[0_40px_80px_rgba(0,0,0,0.8)] border-2 border-pink-500 flex items-center space-x-6 pr-10">
-              <div className="relative">
-                <img src={selectedImage.preview} className="w-24 h-24 object-cover rounded-[1rem] shadow-inner border border-white/10" alt="Preview" />
-                <div className="absolute -top-3 -right-3 w-8 h-8 rani-pink-bg rounded-full flex items-center justify-center text-[9px] font-black text-white shadow-xl">IMG</div>
-              </div>
-              <div className="max-w-[180px]">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-1">Visual Ingested</p>
-                <p className="text-sm font-black text-white uppercase tracking-tighter leading-tight">Ready for Scan</p>
-              </div>
-              <button 
-                onClick={() => setSelectedImage(null)}
-                className="w-10 h-10 bg-white/5 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all border border-white/5"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Input Bar */}
-        <div className="p-8 md:p-12 bg-slate-900/50 border-t border-white/5 flex-shrink-0 relative z-10 input-bar-gradient">
-          <div className="relative flex items-center space-x-6 max-w-6xl mx-auto">
+        {/* Input */}
+        <div className="p-10 md:p-14 bg-slate-900/60 border-t border-white/10 relative z-10 backdrop-blur-3xl">
+          <div className="relative flex items-center space-x-8 max-w-7xl mx-auto">
             <input 
               type="file" 
               accept="image/*" 
@@ -381,16 +331,12 @@ const ChatInterface: React.FC = () => {
               onChange={handleFileChange}
             />
             
-            {/* Action Buttons */}
-            <div className="flex items-center space-x-3">
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                className={`w-14 h-14 sm:w-16 sm:h-16 rounded-[1.5rem] border-2 transition-all flex items-center justify-center flex-shrink-0 ${selectedImage ? 'bg-pink-600 border-pink-500 text-white shadow-[0_0_40px_#ec4899]' : 'bg-white/5 border-white/10 text-slate-500 hover:border-pink-500/50 hover:text-pink-500'}`}
-                title="Ingest Visual Marker"
-              >
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              </button>
-            </div>
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className={`w-16 h-16 sm:w-20 sm:h-20 rounded-[2rem] border-2 transition-all flex items-center justify-center flex-shrink-0 ${selectedImage ? 'bg-pink-600 border-pink-500 text-white shadow-3xl' : 'bg-white/5 border-white/10 text-slate-500 hover:border-white/30 hover:text-white'}`}
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            </button>
             
             <div className="relative flex-grow">
               <input 
@@ -398,13 +344,13 @@ const ChatInterface: React.FC = () => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder={selectedImage ? "Execute visual synthesis..." : "Access the cultural vault..."}
-                className="w-full pl-8 pr-44 sm:pr-56 py-6 md:py-8 bg-white/5 border-2 border-white/10 rounded-[2.5rem] focus:ring-4 focus:ring-pink-500/10 focus:border-pink-500/50 outline-none transition text-lg md:text-2xl font-bold text-white placeholder:text-slate-800 shadow-inner"
+                placeholder={selectedImage ? "Execute image synthesis..." : "Access the cultural database..."}
+                className="w-full pl-10 pr-56 py-8 md:py-10 bg-black/40 border-2 border-white/10 rounded-[3rem] focus:border-pink-500 transition-all text-xl md:text-3xl font-bold text-white placeholder:text-slate-800 shadow-inner outline-none"
               />
               <button 
                 onClick={handleSend}
                 disabled={!input.trim() && !selectedImage}
-                className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 bg-gradient-to-r from-pink-600 to-orange-500 hover:scale-[1.03] disabled:opacity-10 disabled:hover:scale-100 text-white px-8 sm:px-12 py-3.5 sm:py-4.5 rounded-[1.8rem] transition-all font-black uppercase text-[10px] sm:text-xs tracking-[0.2em] shadow-xl"
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white text-slate-950 hover:bg-pink-500 hover:text-white transition-all px-12 py-5 rounded-[2rem] font-black uppercase text-[11px] tracking-[0.4em] shadow-2xl active:scale-95 disabled:opacity-10"
               >
                 Execute
               </button>
