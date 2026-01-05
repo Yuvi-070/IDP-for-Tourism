@@ -19,6 +19,7 @@ export interface TravelOption {
   description: string;
   estimatedCost: string;
   duration: string;
+  operatorDetails?: string;
 }
 
 export interface HotelRecommendation {
@@ -27,6 +28,9 @@ export interface HotelRecommendation {
   estimatedPricePerNight: string;
   amenities: string[];
   mapUrl?: string;
+  googleRating?: number;
+  webRating?: number;
+  reviewCount?: string;
 }
 
 export interface Itinerary {

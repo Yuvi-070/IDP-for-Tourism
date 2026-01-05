@@ -61,9 +61,10 @@ const ITINERARY_SCHEMA = {
           mode: { type: Type.STRING, description: "Mode of transport: Bus, Train, Flight, or Private Taxi" },
           description: { type: Type.STRING },
           estimatedCost: { type: Type.STRING, description: "Total cost for all travelers in INR" },
-          duration: { type: Type.STRING }
+          duration: { type: Type.STRING },
+          operatorDetails: { type: Type.STRING, description: "E.g., Train Name/No, Flight Carrier, Bus Operator" }
         },
-        required: ["mode", "description", "estimatedCost", "duration"]
+        required: ["mode", "description", "estimatedCost", "duration", "operatorDetails"]
       }
     },
     hotelRecommendations: {
@@ -75,9 +76,12 @@ const ITINERARY_SCHEMA = {
           description: { type: Type.STRING },
           estimatedPricePerNight: { type: Type.STRING, description: "Price in INR for one room" },
           amenities: { type: Type.ARRAY, items: { type: Type.STRING } },
-          mapUrl: { type: Type.STRING, description: "Google Maps search URL for the hotel" }
+          mapUrl: { type: Type.STRING, description: "Google Maps search URL for the hotel" },
+          googleRating: { type: Type.NUMBER, description: "Real-world Google rating (e.g. 4.5)" },
+          webRating: { type: Type.NUMBER, description: "Real-world Web/TripAdvisor rating (e.g. 4.6)" },
+          reviewCount: { type: Type.STRING, description: "Approx number of reviews (e.g. '1.2K+')" }
         },
-        required: ["name", "description", "estimatedPricePerNight", "amenities", "mapUrl"]
+        required: ["name", "description", "estimatedPricePerNight", "amenities", "mapUrl", "googleRating", "webRating", "reviewCount"]
       }
     }
   },
@@ -101,9 +105,9 @@ export const generateTravelItinerary = async (
       Specific Hotel Requirement: ${hotelStars}-star hotels.
       
       CRITICAL:
-      1. Provide detailed travel options (Bus, Train, Flight) from ${startingLocation} to ${destination} with real-world price estimates in INR for ${travelersCount} people.
-      2. Suggest 3 hotels in ${destination} matching the ${hotelStars}-star rating. Include a Google Maps URL for each hotel in the mapUrl field.
-      3. Use Google Search to verify current prices and routes.`,
+      1. Provide detailed travel options (Bus, Train, Flight) from ${startingLocation} to ${destination} with real-world price estimates in INR for ${travelersCount} people. Include specific operator names (e.g., IndiGo, Rajdhani Express).
+      2. Suggest 3 hotels in ${destination} matching the ${hotelStars}-star rating. Include a Google Maps URL for each hotel in the mapUrl field. Provide Google and Web ratings.
+      3. Use Google Search to verify current prices, ratings, and routes.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: ITINERARY_SCHEMA,
@@ -126,9 +130,9 @@ export const generateItineraryFromPrompt = async (prompt: string): Promise<Itine
       2. Default travelers count to 2 if not specified.
       3. Default duration to 3 days if not specified.
       4. Create a detailed day-by-day plan with specific activities and times.
-      5. Provide travel options (Flight/Train/Bus) from the starting location to the destination.
-      6. Provide 3 high-quality hotel recommendations with description and amenities.
-      7. Strictly follow the provided JSON schema. Ensure all fields are populated correctly with logical data even if the user prompt is brief.`,
+      5. Provide travel options (Flight/Train/Bus) from the starting location to the destination with operator names.
+      6. Provide 3 high-quality hotel recommendations with description, amenities, and real-world ratings.
+      7. Strictly follow the provided JSON schema.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: ITINERARY_SCHEMA,
@@ -224,7 +228,7 @@ export const refreshHotelRecommendations = async (
       model: "gemini-3-flash-preview",
       contents: `Suggest 3 alternative ${hotelStars}-star hotel recommendations in ${destination}.
       IMPORTANT: Do NOT include any of these hotels: ${excludedHotels.join(", ")}.
-      Provide fresh options with Google Maps search links.`,
+      Provide fresh options with Google Maps search links and real-world ratings.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {

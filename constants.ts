@@ -24,7 +24,9 @@ export const THEMES = [
   "Himalayan Adventure", "Artisanal Crafts & Textiles", "Vedic Wellness & Yoga", 
   "Tiger Safaris & Wildlife", "Rural Life & Slow Travel", "Luxury & Palatial Leisure",
   "Hidden Gems & Forgotten Ruins", "Off-the-beaten Path", "Modern India & Nightlife", 
-  "Eco-Tourism & Conservation", "Festival & Folk Culture", "Coastal Serenity"
+  "Eco-Tourism & Conservation", "Festival & Folk Culture", "Coastal Serenity",
+  "Backpacking & Hostels", "Photography Expedition", "Solo Female Travel Friendly",
+  "Senior Citizen Friendly", "Honeymoon & Romantic", "Monsoon Magic", "Winter Snow Trails"
 ];
 
 export const MOCK_GUIDES: Guide[] = [
