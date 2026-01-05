@@ -1,18 +1,51 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
+const images = [
+  "https://images.unsplash.com/photo-1548013146-72479768bbaa?auto=format&fit=crop&q=80&w=1920", // Taj Mahal
+  "https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?auto=format&fit=crop&q=80&w=1920", // Ladakh
+  "https://images.unsplash.com/photo-1506461883276-594a12b11cf3?auto=format&fit=crop&q=80&w=1920", // Varanasi
+  "https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&q=80&w=1920"  // Kerala
+];
 
 const Hero: React.FC<{ onGetStarted: () => void }> = ({ onGetStarted }) => {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden bg-slate-950">
+      {/* Scoped style to decrease film grain on Hero only */}
+      <style>{`
+        .noise-overlay {
+          opacity: 0.01 !important;
+        }
+      `}</style>
+
       <div className="absolute inset-0 z-0">
-        <img 
-          src="https://images.unsplash.com/photo-1548013146-72479768bbaa?auto=format&fit=crop&q=80&w=1920" 
-          className="w-full h-full object-cover brightness-[0.25] scale-105 transition-transform duration-[10000ms] ease-out"
-          style={{ transform: 'scale(1.1) rotate(-1deg)' }}
-          alt="Ancient India Atmosphere"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-transparent to-transparent"></div>
+        {images.map((img, idx) => (
+          <div
+            key={img}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+              idx === currentImageIndex ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <img 
+              src={img} 
+              className="w-full h-full object-cover brightness-[0.45] scale-110 transition-transform duration-[10000ms] ease-out"
+              style={{ transform: idx === currentImageIndex ? 'scale(1) rotate(0deg)' : 'scale(1.1) rotate(-1deg)' }}
+              alt="Scenic India"
+            />
+          </div>
+        ))}
+        {/* lightened gradients to show more of the image */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/60 via-transparent to-transparent"></div>
       </div>
       
       <div className="relative z-10 max-w-screen-2xl mx-auto px-6 sm:px-12 lg:px-16 w-full">
