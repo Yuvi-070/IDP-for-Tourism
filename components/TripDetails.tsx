@@ -5,30 +5,69 @@ import { Itinerary } from '../types';
 interface TripDetailsProps {
   itinerary: Itinerary;
   onBack: () => void;
+  onBookGuide: () => void;
 }
 
-const TripDetails: React.FC<TripDetailsProps> = ({ itinerary, onBack }) => {
+const TripDetails: React.FC<TripDetailsProps> = ({ itinerary, onBack, onBookGuide }) => {
   const [expandedTravelIdx, setExpandedTravelIdx] = useState<number | null>(null);
   const [expandedHotelIdx, setExpandedHotelIdx] = useState<number | null>(null);
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleShare = () => {
+    const text = `Check out my ${itinerary.duration}-day trip to ${itinerary.destination} planned on LocalLens!`;
+    if (navigator.share) {
+      navigator.share({
+        title: 'My LocalLens Odyssey',
+        text: text,
+        url: window.location.href,
+      }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(text + " " + window.location.href);
+      alert("Manifest link copied to clipboard.");
+    }
+  };
+
   return (
-    <div className="bg-slate-950 min-h-screen text-slate-100 py-6 md:py-12">
+    <div className="bg-slate-950 min-h-screen text-slate-100 py-6 md:py-12 print:bg-white print:text-slate-950">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 animate-in fade-in zoom-in duration-700">
         <style>{`
           .expand-transition {
             transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
           }
+          @media print {
+            .no-print { display: none !important; }
+            .bg-slate-900\/60 { background: white !important; border: 1px solid #e2e8f0 !important; }
+            .text-white { color: #0f172a !important; }
+            .text-slate-400, .text-slate-500 { color: #475569 !important; }
+            .textile-gradient { -webkit-text-fill-color: #ec4899 !important; }
+            .rounded-[4rem] { border-radius: 1rem !important; }
+            .shadow-2xl { shadow: none !important; }
+          }
         `}</style>
         
-        <div className="bg-slate-900/60 backdrop-blur-3xl rounded-[2.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-white/5">
+        <div className="bg-slate-900/60 backdrop-blur-3xl rounded-[2.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-white/5 relative">
           {/* Header */}
           <div className="bg-slate-900 p-8 sm:p-14 lg:p-20 text-white relative overflow-hidden border-b border-white/5">
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-pink-500/10 rounded-full blur-[120px] translate-x-1/3 -translate-y-1/3"></div>
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-pink-500/10 rounded-full blur-[120px] translate-x-1/3 -translate-y-1/3 no-print"></div>
             
-            <button onClick={onBack} className="relative z-10 flex items-center space-x-3 mb-8 font-black uppercase text-[10px] tracking-[0.3em] group text-slate-500 hover:text-pink-500 transition-all">
-              <svg className="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-              <span>Back to Blueprint</span>
-            </button>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-6 no-print">
+              <button onClick={onBack} className="flex items-center space-x-3 font-black uppercase text-[10px] tracking-[0.3em] group text-slate-500 hover:text-pink-500 transition-all">
+                <svg className="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                <span>Back to Blueprint</span>
+              </button>
+              
+              <div className="flex items-center space-x-4">
+                <button onClick={handleShare} className="p-3 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-slate-400 hover:text-white" title="Share Manifest">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                </button>
+                <button onClick={handlePrint} className="p-3 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-slate-400 hover:text-white" title="Print/PDF">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 00-2 2h2m2 4h10a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                </button>
+              </div>
+            </div>
             
             <div className="relative z-10">
               <span className="text-pink-500 font-black uppercase tracking-[0.4em] text-[10px] sm:text-xs mb-3 block">Heritage Expedition Confirmed</span>
@@ -45,27 +84,27 @@ const TripDetails: React.FC<TripDetailsProps> = ({ itinerary, onBack }) => {
               <div key={day.day}>
                 <div className="flex items-center space-x-6 mb-10">
                   <span className="text-5xl sm:text-8xl font-black textile-gradient tracking-tighter">0{day.day}</span>
-                  <div className="h-px flex-grow bg-white/5"></div>
+                  <div className="h-px flex-grow bg-white/5 print:bg-slate-200"></div>
                   <span className="text-xs font-black uppercase text-pink-500 tracking-widest">{day.activities.length} Waypoints</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {day.activities.map((activity, idx) => (
-                    <div key={idx} className="bg-slate-900/40 p-8 rounded-[2rem] border border-white/5 hover:border-pink-500/20 transition-all flex flex-col justify-between group h-full shadow-xl">
+                    <div key={idx} className="bg-slate-900/40 p-8 rounded-[2rem] border border-white/5 flex flex-col justify-between group h-full shadow-xl print:shadow-none print:border-slate-200">
                       <div>
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center space-x-2 text-white font-black text-sm">
-                             <svg className="w-4 h-4 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                             <span>{activity.time}</span>
+                             <svg className="w-4 h-4 text-pink-500 no-print" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                             <span className="print:text-slate-950">{activity.time}</span>
                           </div>
-                          <span className="text-[10px] font-black text-emerald-400 uppercase bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">{activity.estimatedCost}</span>
+                          <span className="text-[10px] font-black text-emerald-400 uppercase bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20 print:border-slate-200 print:text-emerald-700">{activity.estimatedCost}</span>
                         </div>
-                        <h4 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-3 truncate group-hover:text-pink-500 transition-colors">{activity.location}</h4>
-                        <p className="text-sm sm:text-base text-slate-400 font-bold italic line-clamp-3 leading-relaxed mb-6 group-hover:line-clamp-none transition-all">"{activity.description}"</p>
+                        <h4 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-3 truncate group-hover:text-pink-500 transition-colors print:text-slate-950">{activity.location}</h4>
+                        <p className="text-sm sm:text-base text-slate-400 font-bold italic line-clamp-3 leading-relaxed mb-6 group-hover:line-clamp-none transition-all print:text-slate-600 print:line-clamp-none">"{activity.description}"</p>
                       </div>
-                      <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                      <div className="pt-4 border-t border-white/5 flex items-center justify-between print:border-slate-100">
                         <span className="text-[10px] font-black uppercase text-orange-500 tracking-widest">{activity.estimatedTime}</span>
-                        <button onClick={() => window.open(activity.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location)}`, '_blank')} className="text-[10px] font-black uppercase text-pink-500 hover:text-white transition-colors">Show Map</button>
+                        <button onClick={() => window.open(activity.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location)}`, '_blank')} className="text-[10px] font-black uppercase text-pink-500 hover:text-white transition-colors no-print">Show Map</button>
                       </div>
                     </div>
                   ))}
@@ -73,29 +112,29 @@ const TripDetails: React.FC<TripDetailsProps> = ({ itinerary, onBack }) => {
               </div>
             ))}
 
-            {/* Logistics & Stay Summary - Redesigned Expansion UI */}
-            <div className="pt-16 border-t border-white/5 grid grid-cols-1 md:grid-cols-2 gap-10">
+            {/* Logistics & Stay Summary */}
+            <div className="pt-16 border-t border-white/5 grid grid-cols-1 md:grid-cols-2 gap-10 print:grid-cols-1 print:border-slate-200">
               <div className="space-y-6">
                 <h5 className="text-xs font-black uppercase tracking-[0.3em] text-pink-500 ml-1">Logistics Architecture</h5>
                 <div className="space-y-4">
                   {itinerary.travelOptions.map((opt, i) => {
                     const isExpanded = expandedTravelIdx === i;
                     return (
-                      <div key={i} className={`bg-slate-900/80 p-6 rounded-[2rem] border transition-all cursor-pointer ${isExpanded ? 'border-pink-500 shadow-2xl bg-slate-800' : 'border-white/5 hover:border-pink-500/20'}`} onClick={() => setExpandedTravelIdx(isExpanded ? null : i)}>
+                      <div key={i} className={`bg-slate-900/80 p-6 rounded-[2rem] border transition-all cursor-pointer ${isExpanded ? 'border-pink-500 shadow-2xl bg-slate-800' : 'border-white/5 hover:border-pink-500/20'} print:bg-white print:border-slate-200`} onClick={() => setExpandedTravelIdx(isExpanded ? null : i)}>
                          <div className="flex justify-between items-center mb-1">
-                            <h6 className="text-base font-black text-white uppercase">{opt.mode}</h6>
-                            <span className="text-sm font-black text-emerald-400">{opt.estimatedCost}</span>
+                            <h6 className="text-base font-black text-white uppercase print:text-slate-950">{opt.mode}</h6>
+                            <span className="text-sm font-black text-emerald-400 print:text-emerald-700">{opt.estimatedCost}</span>
                          </div>
-                         <p className={`text-sm text-slate-400 font-bold italic leading-tight ${isExpanded ? '' : 'truncate'}`}>{opt.description}</p>
+                         <p className={`text-sm text-slate-400 font-bold italic leading-tight ${isExpanded ? '' : 'truncate'} print:text-slate-600 print:truncate-none`}>{opt.description}</p>
                          {isExpanded && (
-                           <div className="mt-4 pt-4 border-t border-white/5 space-y-4 animate-in fade-in">
+                           <div className="mt-4 pt-4 border-t border-white/5 space-y-4 animate-in fade-in no-print">
                               <div className="flex justify-between text-[10px] font-black uppercase text-pink-500 tracking-widest">
                                 <span>Cycle Duration: {opt.duration}</span>
                               </div>
                               <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/search?q=book+${opt.mode.toLowerCase()}+from+${itinerary.startingLocation}+to+${itinerary.destination.split(' (')[0]}`, '_blank'); }} className="w-full py-4 bg-pink-600 hover:bg-pink-500 rounded-xl text-white text-[10px] font-black uppercase shadow-lg transition-all active:scale-95">Verify & Book</button>
                            </div>
                          )}
-                         {!isExpanded && <p className="text-[10px] text-slate-600 font-black italic mt-2">Expand for logistics analysis & booking...</p>}
+                         {!isExpanded && <p className="text-[10px] text-slate-600 font-black italic mt-2 no-print">Expand for logistics analysis & booking...</p>}
                       </div>
                     );
                   })}
@@ -108,21 +147,21 @@ const TripDetails: React.FC<TripDetailsProps> = ({ itinerary, onBack }) => {
                   {itinerary.hotelRecommendations.map((hotel, i) => {
                     const isExpanded = expandedHotelIdx === i;
                     return (
-                      <div key={i} className={`bg-slate-900/80 p-6 rounded-[2rem] border transition-all cursor-pointer ${isExpanded ? 'border-orange-500 shadow-2xl bg-slate-800' : 'border-white/5 hover:border-orange-500/20'}`} onClick={() => setExpandedHotelIdx(isExpanded ? null : i)}>
+                      <div key={i} className={`bg-slate-900/80 p-6 rounded-[2rem] border transition-all cursor-pointer ${isExpanded ? 'border-orange-500 shadow-2xl bg-slate-800' : 'border-white/5 hover:border-orange-500/20'} print:bg-white print:border-slate-200`} onClick={() => setExpandedHotelIdx(isExpanded ? null : i)}>
                          <div className="flex justify-between items-start mb-1">
-                            <h6 className="text-base font-black text-white truncate w-2/3">{hotel.name}</h6>
-                            <span className="text-sm font-black text-emerald-400">{hotel.estimatedPricePerNight}</span>
+                            <h6 className="text-base font-black text-white truncate w-2/3 print:text-slate-950 print:w-full">{hotel.name}</h6>
+                            <span className="text-sm font-black text-emerald-400 print:text-emerald-700">{hotel.estimatedPricePerNight}</span>
                          </div>
-                         <p className={`text-sm text-slate-400 font-bold italic leading-tight ${isExpanded ? '' : 'truncate'}`}>{hotel.description}</p>
+                         <p className={`text-sm text-slate-400 font-bold italic leading-tight ${isExpanded ? '' : 'truncate'} print:text-slate-600 print:truncate-none`}>{hotel.description}</p>
                          {isExpanded && (
-                           <div className="mt-4 pt-4 border-t border-white/5 space-y-4 animate-in fade-in">
+                           <div className="mt-4 pt-4 border-t border-white/5 space-y-4 animate-in fade-in no-print">
                              <div className="flex flex-wrap gap-2">
                                {hotel.amenities.map(a => <span key={a} className="bg-white/5 px-3 py-1.5 rounded-lg text-[9px] text-slate-500 uppercase font-black border border-white/5">{a}</span>)}
                              </div>
                              <button onClick={(e) => { e.stopPropagation(); window.open(hotel.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name + " " + itinerary.destination)}`, '_blank'); }} className="w-full py-4 bg-orange-600 hover:bg-orange-500 rounded-xl text-white font-black text-[10px] uppercase transition-all shadow-lg active:scale-95">Explore Sanctuary Site</button>
                            </div>
                          )}
-                         {!isExpanded && <p className="text-[10px] text-slate-600 font-black italic mt-2">Expand for amenities & location narrative...</p>}
+                         {!isExpanded && <p className="text-[10px] text-slate-600 font-black italic mt-2 no-print">Expand for amenities & location narrative...</p>}
                       </div>
                     );
                   })}
@@ -130,12 +169,12 @@ const TripDetails: React.FC<TripDetailsProps> = ({ itinerary, onBack }) => {
               </div>
             </div>
 
-            <div className="pt-20 flex flex-col items-center text-center">
+            <div className="pt-20 flex flex-col items-center text-center no-print">
               <h5 className="text-3xl sm:text-5xl font-black text-white mb-4 uppercase tracking-tighter">Manifest the Odyssey</h5>
               <p className="text-slate-500 mb-10 font-bold text-lg italic max-w-2xl">Download your heritage matrix and sync with verified master storytellers on the ground.</p>
               <div className="flex flex-col sm:flex-row gap-6 w-full sm:w-auto">
-                <button className="bg-pink-600 text-white px-12 py-5 rounded-full font-black text-sm sm:text-base shadow-[0_20px_50px_rgba(236,72,153,0.3)] hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.3em]">Secure Master Guide</button>
-                <button className="bg-white/5 text-white border border-white/10 px-12 py-5 rounded-full font-black text-sm sm:text-base hover:bg-white/10 transition-all active:scale-95 uppercase tracking-[0.3em]">Export Odyssey Blueprint</button>
+                <button onClick={onBookGuide} className="bg-pink-600 text-white px-12 py-5 rounded-full font-black text-sm sm:text-base shadow-[0_20px_50px_rgba(236,72,153,0.3)] hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.3em]">Secure Master Guide</button>
+                <button onClick={handlePrint} className="bg-white/5 text-white border border-white/10 px-12 py-5 rounded-full font-black text-sm sm:text-base hover:bg-white/10 transition-all active:scale-95 uppercase tracking-[0.3em]">Export Odyssey Blueprint</button>
               </div>
             </div>
           </div>

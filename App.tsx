@@ -76,7 +76,15 @@ const App: React.FC = () => {
       case 'planner':
         return <Planner initialDestination={preselectedDest} onFinalize={handleFinalize} />;
       case 'details':
-        return finalItinerary ? <TripDetails itinerary={finalItinerary} onBack={() => setActiveTab('planner')} /> : <Planner onFinalize={handleFinalize} />;
+        return finalItinerary ? (
+          <TripDetails 
+            itinerary={finalItinerary} 
+            onBack={() => setActiveTab('planner')} 
+            onBookGuide={() => setActiveTab('guides')} 
+          />
+        ) : (
+          <Planner onFinalize={handleFinalize} />
+        );
       case 'guides':
         return <GuideMarketplace />;
       case 'chat':

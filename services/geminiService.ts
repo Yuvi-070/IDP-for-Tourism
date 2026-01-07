@@ -2,7 +2,10 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Itinerary, Activity, HotelRecommendation } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// The API key is retrieved exclusively from process.env.API_KEY.
+// When running locally, ensure your build tool (e.g., Vite) or environment
+// is configured to inject this variable.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
   try {
@@ -99,7 +102,7 @@ export const generateTravelItinerary = async (
   const themeString = themes.join(", ");
   return callWithRetry(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview", // Complex task: Use Pro for deeper reasoning
       contents: `Architect a ${duration}-day travel itinerary for ${destination} starting from ${startingLocation} for ${travelersCount} travelers.
       Themes: ${themeString}.
       Specific Hotel Requirement: ${hotelStars}-star hotels.
@@ -115,14 +118,14 @@ export const generateTravelItinerary = async (
       }
     });
 
-    return JSON.parse(response.text) as Itinerary;
+    return JSON.parse(response.text || "{}") as Itinerary;
   });
 };
 
 export const generateItineraryFromPrompt = async (prompt: string): Promise<Itinerary> => {
   return callWithRetry(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview", // Complex reasoning: Use Pro
       contents: `Synthesize a comprehensive, professional travel itinerary based on this user intent: "${prompt}". 
 
       INSTRUCTIONS:
@@ -140,7 +143,7 @@ export const generateItineraryFromPrompt = async (prompt: string): Promise<Itine
       }
     });
 
-    return JSON.parse(response.text) as Itinerary;
+    return JSON.parse(response.text || "{}") as Itinerary;
   });
 };
 
@@ -180,7 +183,7 @@ export const generateSpeech = async (text: string): Promise<string> => {
 export const chatWithLocalAI = async (message: string, context: string) => {
   return callWithRetry(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview", // Efficient task: Use Flash
       contents: `You are the LocalLens AI Concierge. A high-end Indian tourism assistant. 
       Context: ${context}.
       User Message: ${message}.
@@ -189,14 +192,14 @@ export const chatWithLocalAI = async (message: string, context: string) => {
         tools: [{ googleSearch: {} }, { googleMaps: {} }] 
       }
     });
-    return response.text;
+    return response.text || "";
   });
 };
 
 export const analyzeLocationImage = async (base64Image: string, mimeType: string) => {
   return callWithRetry(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-pro-preview", // Multimodal reasoning: Use Pro
       contents: {
         parts: [
           { inlineData: { data: base64Image, mimeType: mimeType } }, 
@@ -204,7 +207,7 @@ export const analyzeLocationImage = async (base64Image: string, mimeType: string
         ],
       },
     });
-    return response.text;
+    return response.text || "";
   });
 };
 
@@ -214,7 +217,7 @@ export const translateText = async (text: string, targetLanguage: string) => {
       model: "gemini-3-flash-preview",
       contents: `Translate the following text to ${targetLanguage}. Maintain the cultural nuance: ${text}`,
     });
-    return response.text;
+    return response.text || "";
   });
 }
 
@@ -238,7 +241,7 @@ export const refreshHotelRecommendations = async (
         tools: [{ googleSearch: {} }]
       }
     });
-    return JSON.parse(response.text) as HotelRecommendation[];
+    return JSON.parse(response.text || "[]") as HotelRecommendation[];
   });
 };
 
@@ -256,7 +259,7 @@ export const getMoreSuggestions = async (destination: string): Promise<Activity[
         tools: [{ googleSearch: {} }]
       }
     });
-    return JSON.parse(response.text) as Activity[];
+    return JSON.parse(response.text || "[]") as Activity[];
   });
 };
 
