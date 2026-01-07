@@ -2,8 +2,26 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Itinerary, Activity, HotelRecommendation } from "../types";
 
-// Standard initialization using the environment variable.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Lazy-load the AI instance to prevent top-level crashes if process.env.API_KEY is missing
+let aiInstance: GoogleGenAI | null = null;
+
+const getAI = () => {
+  if (!aiInstance) {
+    // Check for process and process.env to prevent ReferenceErrors in browser environments
+    const env = typeof process !== 'undefined' ? process.env : ({} as any);
+    const apiKey = env?.API_KEY;
+    
+    if (!apiKey) {
+      console.warn("LocalLens: API_KEY is missing from environment. AI features will require key initialization via the platform UI.");
+      // Initialize with a placeholder to prevent constructor crashes; 
+      // the SDK will handle the missing key error during the first actual API call.
+      aiInstance = new GoogleGenAI({ apiKey: 'MISSING_ENV_KEY' });
+    } else {
+      aiInstance = new GoogleGenAI({ apiKey });
+    }
+  }
+  return aiInstance;
+};
 
 const ITINERARY_SCHEMA = {
   type: Type.OBJECT,
@@ -83,6 +101,7 @@ export const generateTravelItinerary = async (
   travelersCount: number
 ): Promise<Itinerary> => {
   const themeString = themes.join(", ");
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
     contents: `Architect a ${duration}-day travel itinerary for ${destination} starting from ${startingLocation} for ${travelersCount} travelers.
@@ -97,6 +116,7 @@ export const generateTravelItinerary = async (
 };
 
 export const generateItineraryFromPrompt = async (prompt: string): Promise<Itinerary> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
     contents: `Synthesize a comprehensive itinerary based on: "${prompt}".`,
@@ -110,6 +130,7 @@ export const generateItineraryFromPrompt = async (prompt: string): Promise<Itine
 };
 
 export const chatWithLocalAI = async (message: string, context: string) => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `You are the LocalLens AI Concierge. Context: ${context}. User: ${message}.`,
@@ -119,6 +140,7 @@ export const chatWithLocalAI = async (message: string, context: string) => {
 };
 
 export const transcribeAudio = async (base64Data: string, mimeType: string): Promise<string> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: { parts: [{ inlineData: { data: base64Data, mimeType: mimeType } }, { text: "Transcribe precisely." }] }
@@ -127,6 +149,7 @@ export const transcribeAudio = async (base64Data: string, mimeType: string): Pro
 };
 
 export const generateSpeech = async (text: string): Promise<string> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
     contents: [{ parts: [{ text: `Read this: ${text}` }] }],
@@ -139,6 +162,7 @@ export const generateSpeech = async (text: string): Promise<string> => {
 };
 
 export const analyzeLocationImage = async (base64Image: string, mimeType: string) => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
     contents: { parts: [{ inlineData: { data: base64Image, mimeType: mimeType } }, { text: "Identify this location in India." }] },
@@ -147,6 +171,7 @@ export const analyzeLocationImage = async (base64Image: string, mimeType: string
 };
 
 export const translateText = async (text: string, targetLanguage: string) => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Translate to ${targetLanguage}: ${text}`,
@@ -159,6 +184,7 @@ export const refreshHotelRecommendations = async (
   hotelStars: number,
   excludedHotels: string[]
 ): Promise<HotelRecommendation[]> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Suggest 3 alternative ${hotelStars}-star hotels in ${destination}, excluding: ${excludedHotels.join(", ")}.`,
@@ -172,6 +198,7 @@ export const refreshHotelRecommendations = async (
 };
 
 export const getMoreSuggestions = async (destination: string): Promise<Activity[]> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Find 5 additional unique spots in ${destination}.`,
@@ -185,6 +212,7 @@ export const getMoreSuggestions = async (destination: string): Promise<Activity[
 };
 
 export const getPlaceGrounding = async (query: string, lat?: number, lng?: number) => {
+  const ai = getAI();
   const toolConfig = lat && lng ? { retrievalConfig: { latLng: { latitude: lat, longitude: lng } } } : undefined;
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
@@ -200,6 +228,7 @@ export const getPlaceGrounding = async (query: string, lat?: number, lng?: numbe
 };
 
 export const getIconicHotspots = async (category: string = "trending") => {
+  const ai = getAI();
   const query = `List 12 unique ${category} spots in India with Maps links.`;
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
