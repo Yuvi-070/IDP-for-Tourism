@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Layout from './components/Layout';
 import Hero from './components/Hero';
 import Planner from './components/Planner';
@@ -14,28 +14,6 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [preselectedDest, setPreselectedDest] = useState<string | null>(null);
   const [finalItinerary, setFinalItinerary] = useState<Itinerary | null>(null);
-  const [isApiKeySelected, setIsApiKeySelected] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const checkApiKey = async () => {
-      if (typeof window !== 'undefined' && (window as any).aistudio?.hasSelectedApiKey) {
-        const selected = await (window as any).aistudio.hasSelectedApiKey();
-        setIsApiKeySelected(selected);
-      } else {
-        // Fallback for standard environments
-        setIsApiKeySelected(true);
-      }
-    };
-    checkApiKey();
-  }, []);
-
-  const handleOpenKeySelection = async () => {
-    if ((window as any).aistudio?.openSelectKey) {
-      await (window as any).aistudio.openSelectKey();
-      // Assume success as per instructions to avoid race conditions
-      setIsApiKeySelected(true);
-    }
-  };
 
   const handleMapSelect = (dest: string) => {
     setPreselectedDest(dest);
@@ -46,29 +24,6 @@ const App: React.FC = () => {
     setFinalItinerary(itinerary);
     setActiveTab('details');
   };
-
-  if (isApiKeySelected === null) return null; // Wait for initial check
-
-  if (!isApiKeySelected) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-24 h-24 rani-pink-bg rounded-3xl flex items-center justify-center text-white font-black text-4xl shadow-3xl mb-12 animate-bounce">L</div>
-        <h1 className="text-4xl md:text-6xl font-black text-white mb-6 tracking-tighter">Initialize <span className="textile-gradient">Neural Bridge</span></h1>
-        <p className="text-slate-400 text-lg md:text-xl font-bold italic mb-12 max-w-lg leading-relaxed">
-          LocalLens requires a secure link to your Google AI Studio project to architect heritage odysseys.
-        </p>
-        <button 
-          onClick={handleOpenKeySelection}
-          className="bg-white text-slate-950 px-12 py-6 rounded-full font-black text-xl uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all"
-        >
-          Connect Project
-        </button>
-        <p className="mt-8 text-slate-600 text-xs font-black uppercase tracking-widest">
-          Project requires billing enabled. <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-pink-500 underline decoration-pink-500/30">View Documentation</a>
-        </p>
-      </div>
-    );
-  }
 
   const renderContent = () => {
     switch (activeTab) {

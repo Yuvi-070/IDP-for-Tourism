@@ -2,30 +2,8 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Itinerary, Activity, HotelRecommendation } from "../types";
 
-async function callWithRetry<T>(fn: (ai: GoogleGenAI) => Promise<T>, retries = 3, delay = 2000): Promise<T> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  try {
-    return await fn(ai);
-  } catch (error: any) {
-    const errorMsg = error?.message || "";
-    const isRateLimit = error?.status === 429 || errorMsg.includes('429') || errorMsg.includes('quota');
-    const isProjectMissing = errorMsg.includes("Requested entity was not found");
-
-    if (isProjectMissing) {
-      // Trigger a re-selection if the project is invalid/missing
-      if (typeof window !== 'undefined' && (window as any).aistudio?.openSelectKey) {
-        (window as any).aistudio.openSelectKey();
-      }
-      throw new Error("Project link required. Please select a valid API key from a paid GCP project.");
-    }
-
-    if (retries > 0 && isRateLimit) {
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return callWithRetry(fn, retries - 1, delay * 2);
-    }
-    throw error;
-  }
-}
+// Standard initialization using the environment variable.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const ITINERARY_SCHEMA = {
   type: Type.OBJECT,
@@ -105,89 +83,75 @@ export const generateTravelItinerary = async (
   travelersCount: number
 ): Promise<Itinerary> => {
   const themeString = themes.join(", ");
-  return callWithRetry(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: `Architect a ${duration}-day travel itinerary for ${destination} starting from ${startingLocation} for ${travelersCount} travelers.
-      Themes: ${themeString}. Specific Hotel Requirement: ${hotelStars}-star hotels.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: ITINERARY_SCHEMA,
-        tools: [{ googleSearch: {} }]
-      }
-    });
-    return JSON.parse(response.text || "{}") as Itinerary;
+  const response = await ai.models.generateContent({
+    model: "gemini-3-pro-preview",
+    contents: `Architect a ${duration}-day travel itinerary for ${destination} starting from ${startingLocation} for ${travelersCount} travelers.
+    Themes: ${themeString}. Specific Hotel Requirement: ${hotelStars}-star hotels.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: ITINERARY_SCHEMA,
+      tools: [{ googleSearch: {} }]
+    }
   });
+  return JSON.parse(response.text || "{}") as Itinerary;
 };
 
 export const generateItineraryFromPrompt = async (prompt: string): Promise<Itinerary> => {
-  return callWithRetry(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: `Synthesize a comprehensive itinerary based on: "${prompt}".`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: ITINERARY_SCHEMA,
-        tools: [{ googleSearch: {} }]
-      }
-    });
-    return JSON.parse(response.text || "{}") as Itinerary;
+  const response = await ai.models.generateContent({
+    model: "gemini-3-pro-preview",
+    contents: `Synthesize a comprehensive itinerary based on: "${prompt}".`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: ITINERARY_SCHEMA,
+      tools: [{ googleSearch: {} }]
+    }
   });
+  return JSON.parse(response.text || "{}") as Itinerary;
 };
 
 export const chatWithLocalAI = async (message: string, context: string) => {
-  return callWithRetry(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `You are the LocalLens AI Concierge. Context: ${context}. User: ${message}.`,
-      config: { tools: [{ googleSearch: {} }, { googleMaps: {} }] }
-    });
-    return response.text || "";
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `You are the LocalLens AI Concierge. Context: ${context}. User: ${message}.`,
+    config: { tools: [{ googleSearch: {} }, { googleMaps: {} }] }
   });
+  return response.text || "";
 };
 
 export const transcribeAudio = async (base64Data: string, mimeType: string): Promise<string> => {
-  return callWithRetry(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: { parts: [{ inlineData: { data: base64Data, mimeType: mimeType } }, { text: "Transcribe precisely." }] }
-    });
-    return response.text || "";
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: { parts: [{ inlineData: { data: base64Data, mimeType: mimeType } }, { text: "Transcribe precisely." }] }
   });
+  return response.text || "";
 };
 
 export const generateSpeech = async (text: string): Promise<string> => {
-  return callWithRetry(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: `Read this: ${text}` }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } },
-      },
-    });
-    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash-preview-tts",
+    contents: [{ parts: [{ text: `Read this: ${text}` }] }],
+    config: {
+      responseModalities: [Modality.AUDIO],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } },
+    },
   });
+  return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
 };
 
 export const analyzeLocationImage = async (base64Image: string, mimeType: string) => {
-  return callWithRetry(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: { parts: [{ inlineData: { data: base64Image, mimeType: mimeType } }, { text: "Identify this location in India." }] },
-    });
-    return response.text || "";
+  const response = await ai.models.generateContent({
+    model: "gemini-3-pro-preview",
+    contents: { parts: [{ inlineData: { data: base64Image, mimeType: mimeType } }, { text: "Identify this location in India." }] },
   });
+  return response.text || "";
 };
 
 export const translateText = async (text: string, targetLanguage: string) => {
-  return callWithRetry(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Translate to ${targetLanguage}: ${text}`,
-    });
-    return response.text || "";
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Translate to ${targetLanguage}: ${text}`,
   });
+  return response.text || "";
 }
 
 export const refreshHotelRecommendations = async (
@@ -195,66 +159,58 @@ export const refreshHotelRecommendations = async (
   hotelStars: number,
   excludedHotels: string[]
 ): Promise<HotelRecommendation[]> => {
-  return callWithRetry(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Suggest 3 alternative ${hotelStars}-star hotels in ${destination}, excluding: ${excludedHotels.join(", ")}.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: { type: Type.ARRAY, items: ITINERARY_SCHEMA.properties.hotelRecommendations.items },
-        tools: [{ googleSearch: {} }]
-      }
-    });
-    return JSON.parse(response.text || "[]") as HotelRecommendation[];
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Suggest 3 alternative ${hotelStars}-star hotels in ${destination}, excluding: ${excludedHotels.join(", ")}.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: { type: Type.ARRAY, items: ITINERARY_SCHEMA.properties.hotelRecommendations.items },
+      tools: [{ googleSearch: {} }]
+    }
   });
+  return JSON.parse(response.text || "[]") as HotelRecommendation[];
 };
 
 export const getMoreSuggestions = async (destination: string): Promise<Activity[]> => {
-  return callWithRetry(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Find 5 additional unique spots in ${destination}.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: { type: Type.ARRAY, items: ITINERARY_SCHEMA.properties.days.items.properties.activities.items },
-        tools: [{ googleSearch: {} }]
-      }
-    });
-    return JSON.parse(response.text || "[]") as Activity[];
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Find 5 additional unique spots in ${destination}.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: { type: Type.ARRAY, items: ITINERARY_SCHEMA.properties.days.items.properties.activities.items },
+      tools: [{ googleSearch: {} }]
+    }
   });
+  return JSON.parse(response.text || "[]") as Activity[];
 };
 
 export const getPlaceGrounding = async (query: string, lat?: number, lng?: number) => {
   const toolConfig = lat && lng ? { retrievalConfig: { latLng: { latitude: lat, longitude: lng } } } : undefined;
-  return callWithRetry(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: query,
-      config: { tools: [{ googleMaps: {} }], toolConfig: toolConfig },
-    });
-    return { 
-      text: response.text || "", 
-      mapLinks: (response.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
-        .filter((chunk: any) => chunk.maps?.uri)
-        .map((chunk: any) => ({ uri: chunk.maps.uri, title: chunk.maps.title }))
-    };
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: query,
+    config: { tools: [{ googleMaps: {} }], toolConfig: toolConfig },
   });
+  return { 
+    text: response.text || "", 
+    mapLinks: (response.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
+      .filter((chunk: any) => chunk.maps?.uri)
+      .map((chunk: any) => ({ uri: chunk.maps.uri, title: chunk.maps.title }))
+  };
 };
 
 export const getIconicHotspots = async (category: string = "trending") => {
   const query = `List 12 unique ${category} spots in India with Maps links.`;
-  return callWithRetry(async (ai) => {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: query,
-      config: { tools: [{ googleMaps: {} }] },
-    });
-    return (response.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
-      .filter((chunk: any) => chunk.maps?.uri)
-      .map((chunk: any) => ({
-        name: chunk.maps.title,
-        uri: chunk.maps.uri,
-        category: category.charAt(0).toUpperCase() + category.slice(1)
-      }));
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: query,
+    config: { tools: [{ googleMaps: {} }] },
   });
+  return (response.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
+    .filter((chunk: any) => chunk.maps?.uri)
+    .map((chunk: any) => ({
+      name: chunk.maps.title,
+      uri: chunk.maps.uri,
+      category: category.charAt(0).toUpperCase() + category.slice(1)
+    }));
 };
