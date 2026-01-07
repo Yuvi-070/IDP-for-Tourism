@@ -2,23 +2,28 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Itinerary, Activity, HotelRecommendation } from "../types";
 
-// Lazy-load the AI instance to prevent top-level crashes if process.env.API_KEY is missing
+/**
+ * AI Initialization Service
+ * 
+ * NOTE: The API key MUST be provided in your environment as `API_KEY`.
+ * If using a .env.local file, ensure it contains:
+ * API_KEY="your_actual_gemini_api_key_here"
+ */
+
 let aiInstance: GoogleGenAI | null = null;
 
 const getAI = () => {
   if (!aiInstance) {
-    // Check for process and process.env to prevent ReferenceErrors in browser environments
-    const env = typeof process !== 'undefined' ? process.env : ({} as any);
-    const apiKey = env?.API_KEY;
-    
-    if (!apiKey) {
-      console.warn("LocalLens: API_KEY is missing from environment. AI features will require key initialization via the platform UI.");
-      // Initialize with a placeholder to prevent constructor crashes; 
-      // the SDK will handle the missing key error during the first actual API call.
-      aiInstance = new GoogleGenAI({ apiKey: 'MISSING_ENV_KEY' });
-    } else {
-      aiInstance = new GoogleGenAI({ apiKey });
+    // Determine the environment safely to avoid ReferenceErrors in various local setups
+    const globalEnv = typeof process !== 'undefined' ? process.env : (window as any).process?.env || {};
+    const apiKey = globalEnv.API_KEY;
+
+    if (!apiKey || apiKey === 'MISSING_ENV_KEY') {
+      console.error("LocalLens: API_KEY is missing from environment (process.env.API_KEY). Ensure it is set in .env.local as API_KEY=...");
     }
+    
+    // Initialize AI client
+    aiInstance = new GoogleGenAI({ apiKey: apiKey || 'MISSING_ENV_KEY' });
   }
   return aiInstance;
 };
