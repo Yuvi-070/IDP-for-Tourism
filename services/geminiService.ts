@@ -91,14 +91,14 @@ export const generateTravelItinerary = async (
   const themeString = themes.join(", ");
   const ai = getAI();
   try {
+    // Using gemini-2.5-flash for reliable structured JSON generation
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-2.5-flash",
       contents: `Architect a ${duration}-day travel itinerary for ${destination} starting from ${startingLocation} for ${travelersCount} travelers.
       Themes: ${themeString}. Specific Hotel Requirement: ${hotelStars}-star hotels.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: ITINERARY_SCHEMA,
-        // Removed googleSearch to prevent conflict with strict JSON schema generation
       }
     });
 
@@ -121,13 +121,13 @@ export const generateTravelItinerary = async (
 export const generateItineraryFromPrompt = async (prompt: string): Promise<Itinerary> => {
   const ai = getAI();
   try {
+    // Using gemini-2.5-flash for reliable structured JSON generation
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-2.5-flash",
       contents: `Synthesize a comprehensive itinerary based on: "${prompt}".`,
       config: {
         responseMimeType: "application/json",
         responseSchema: ITINERARY_SCHEMA,
-        // Removed googleSearch to prevent conflict with strict JSON schema generation
       }
     });
     
@@ -204,13 +204,13 @@ export const refreshHotelRecommendations = async (
 ): Promise<HotelRecommendation[]> => {
   const ai = getAI();
   try {
+    // Using gemini-2.5-flash for reliable structured JSON generation
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: `Suggest 3 alternative ${hotelStars}-star hotels in ${destination}, excluding: ${excludedHotels.join(", ")}.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: { type: Type.ARRAY, items: ITINERARY_SCHEMA.properties.hotelRecommendations.items },
-        // Removed googleSearch to prevent conflict with strict JSON schema generation
       }
     });
     return JSON.parse(response.text || "[]") as HotelRecommendation[];
@@ -223,13 +223,13 @@ export const refreshHotelRecommendations = async (
 export const getMoreSuggestions = async (destination: string): Promise<Activity[]> => {
   const ai = getAI();
   try {
+    // Using gemini-2.5-flash for reliable structured JSON generation
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: `Find 5 additional unique spots in ${destination}.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: { type: Type.ARRAY, items: ITINERARY_SCHEMA.properties.days.items.properties.activities.items },
-        // Removed googleSearch to prevent conflict with strict JSON schema generation
       }
     });
     return JSON.parse(response.text || "[]") as Activity[];
