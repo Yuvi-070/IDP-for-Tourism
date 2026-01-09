@@ -158,7 +158,7 @@ export const chatWithLocalAI = async (message: string, context: string) => {
   const ai = getAI();
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: `You are the LocalLens AI Concierge. Context: ${context}. User: ${message}.`,
       config: { tools: [{ googleSearch: {} }, { googleMaps: {} }] }
     });
