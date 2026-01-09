@@ -99,12 +99,21 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
       } else {
         data = await generateItineraryFromPrompt(prompt);
       }
+      
+      if (!data) throw new Error("Received empty data from synthesis.");
+      
       setItinerary(data);
-      setSeenHotelNames(new Set(data.hotelRecommendations.map(h => h.name.toLowerCase())));
-      fetchExtras(data.destination);
+      
+      // Safety check for optional arrays
+      const hotels = data.hotelRecommendations || [];
+      setSeenHotelNames(new Set(hotels.map(h => h.name.toLowerCase())));
+      
+      if (data.destination) {
+        fetchExtras(data.destination);
+      }
     } catch (error) {
       console.error(error);
-      alert("Odyssey synthesis failure. Please refine your parameters and retry.");
+      alert("Odyssey synthesis failure. Please refine your parameters or check your network connection.");
     } finally {
       setLoading(false);
     }
@@ -148,28 +157,34 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
 
   const uniqueExtras = useMemo(() => {
     if (!itinerary) return extraSuggestions;
-    const currentLocations = new Set(itinerary.days.flatMap(day => day.activities.map(act => act.location.toLowerCase())));
+    // Safety check for days and activities
+    if (!itinerary.days) return extraSuggestions;
+    
+    const currentLocations = new Set(itinerary.days.flatMap(day => (day.activities || []).map(act => act.location.toLowerCase())));
     return extraSuggestions.filter(extra => !currentLocations.has(extra.location.toLowerCase()));
   }, [itinerary, extraSuggestions]);
 
   const handleRemoveActivity = (dayIndex: number, activityIndex: number) => {
-    if (!itinerary) return;
+    if (!itinerary || !itinerary.days) return;
     const newItinerary = { ...itinerary };
     newItinerary.days[dayIndex].activities.splice(activityIndex, 1);
     setItinerary(newItinerary);
   };
 
   const handleAddFromExtras = (extra: Activity, targetDayIdx: number) => {
-    if (!itinerary) return;
+    if (!itinerary || !itinerary.days) return;
     const newItinerary = { ...itinerary };
     const newActivity = { ...extra, time: extra.time || "10:00" };
+    if (!newItinerary.days[targetDayIdx].activities) {
+        newItinerary.days[targetDayIdx].activities = [];
+    }
     newItinerary.days[targetDayIdx].activities.push(newActivity);
     setItinerary(newItinerary);
     setExpandedExtraIdx(null);
   };
 
   const handleReorderActivity = (dayIdx: number, actIdx: number, direction: 'up' | 'down') => {
-    if (!itinerary) return;
+    if (!itinerary || !itinerary.days) return;
     const newItinerary = { ...itinerary };
     const activities = [...newItinerary.days[dayIdx].activities];
     if (direction === 'up' && actIdx > 0) { 
@@ -183,7 +198,7 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
   };
 
   const handleUpdateActivity = (dayIndex: number, activityIndex: number, field: keyof Activity, value: string) => {
-    if (!itinerary) return;
+    if (!itinerary || !itinerary.days) return;
     const newItinerary = { ...itinerary };
     newItinerary.days[dayIndex].activities[activityIndex] = { ...newItinerary.days[dayIndex].activities[activityIndex], [field]: value };
     setItinerary(newItinerary);
@@ -314,7 +329,7 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
           </button>
         </div>
 
-        {itinerary && (
+        {itinerary && itinerary.days && (
           <div className="planner-grid grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
             {/* COLUMN 1 - Sequence */}
             <div className="itinerary-stack lg:col-span-8 space-y-16">
@@ -325,7 +340,7 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
                     <div className="h-px flex-grow bg-white/5"></div>
                   </div>
                   <div className="space-y-12 pl-0 flow-line relative">
-                    {day.activities.map((activity, aIdx) => (
+                    {day.activities && day.activities.map((activity, aIdx) => (
                       <div key={aIdx} className="relative pl-10 sm:pl-24">
                         <div className="absolute left-[1.5rem] sm:left-[3rem] top-10 w-6 h-6 bg-white shadow-xl rounded-xl z-10 ring-4 ring-slate-950 transform -translate-x-1/2 flex items-center justify-center"> <div className="w-1.5 h-1.5 bg-pink-600 rounded-full"></div> </div>
                         <div className="bg-slate-900/40 backdrop-blur-2xl rounded-[1.5rem] p-6 sm:p-10 border border-white/5 shadow-xl hover:border-pink-500/30 transition-all">
@@ -346,7 +361,7 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
                               <div className="flex flex-col sm:flex-row items-center gap-4">
                                 <div className="flex flex-row space-x-2">
                                    <button onClick={() => handleReorderActivity(dIdx, aIdx, 'up')} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-all" disabled={aIdx === 0}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 15l7-7 7 7"/></svg></button>
-                                   <button onClick={() => handleReorderActivity(dIdx, aIdx, 'down')} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-all" disabled={aIdx === day.activities.length - 1}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M19 9l-7 7-7-7"/></svg></button>
+                                   <button onClick={() => handleReorderActivity(dIdx, aIdx, 'down')} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-all" disabled={!day.activities || aIdx === day.activities.length - 1}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M19 9l-7 7-7-7"/></svg></button>
                                 </div>
                                 <span className="text-emerald-400 bg-emerald-500/10 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest w-fit">{activity.estimatedCost}</span>
                               </div>
@@ -404,7 +419,7 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
                                 <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(extra.location)}`, '_blank'); }} className="flex-1 px-2 py-2 text-[8px] font-black uppercase bg-emerald-600/10 text-emerald-400 rounded-lg border border-emerald-500/10 hover:bg-emerald-600 hover:text-white transition-all">Show Map</button>
                               </div>
                               <div className="grid grid-cols-2 gap-2">
-                                {itinerary.days.map((_, i) => ( 
+                                {itinerary.days && itinerary.days.map((_, i) => ( 
                                   <button key={i} onClick={(e) => { e.stopPropagation(); handleAddFromExtras(extra, i); }} className="px-2 py-2 text-[7px] font-black uppercase text-slate-400 hover:bg-white hover:text-slate-950 rounded-lg border border-white/5 transition-all">Add: Day 0{i+1}</button> 
                                 ))}
                               </div>
@@ -420,7 +435,7 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
               <div className="cockpit-panel rounded-3xl p-6 border border-white/10 shadow-2xl">
                 <h5 className="font-black text-orange-500 uppercase tracking-[0.3em] text-[10px] mb-6 flex items-center gap-2"> Vector Analysis </h5>
                 <div className="space-y-4">
-                  {itinerary.travelOptions.map((opt, i) => (
+                  {itinerary.travelOptions && itinerary.travelOptions.map((opt, i) => (
                     <div key={i} className="bg-black/40 rounded-2xl p-4 border border-white/5 hover:border-orange-500/30 transition-all">
                        <div className="flex justify-between items-center mb-2">
                           <div className="flex items-center space-x-3">
@@ -446,7 +461,7 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
                   <button onClick={handleRefreshHotels} className="text-emerald-500/40 hover:text-emerald-500"><svg className={`w-4 h-4 ${loadingHotels ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg></button>
                 </div>
                 <div className="space-y-4">
-                  {itinerary.hotelRecommendations.map((hotel, i) => (
+                  {itinerary.hotelRecommendations && itinerary.hotelRecommendations.map((hotel, i) => (
                     <div key={i} className="bg-black/40 rounded-2xl p-4 border border-white/5 hover:border-emerald-500/30 transition-all">
                        <div className="flex justify-between items-start mb-2"> <h6 className="text-xs font-black text-white uppercase truncate pr-2">{hotel.name}</h6> <span className="text-[9px] text-emerald-400 font-black whitespace-nowrap">{hotel.estimatedPricePerNight}</span> </div>
                        <div className="flex items-center space-x-4 mb-4 mt-2">

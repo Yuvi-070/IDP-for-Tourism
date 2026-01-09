@@ -4,28 +4,11 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
 
 /**
  * AI Initialization Service
- * 
- * NOTE: The API key MUST be provided in your environment as `API_KEY`.
- * If using a .env.local file, ensure it contains:
- * API_KEY="your_actual_gemini_api_key_here"
  */
 
-let aiInstance: GoogleGenAI | null = null;
-
 const getAI = () => {
-  if (!aiInstance) {
-    // Determine the environment safely to avoid ReferenceErrors in various local setups
-    const globalEnv = typeof process !== 'undefined' ? process.env : (window as any).process?.env || {};
-    const apiKey = globalEnv.API_KEY;
-
-    if (!apiKey || apiKey === 'MISSING_ENV_KEY') {
-      console.error("LocalLens: API_KEY is missing from environment (process.env.API_KEY). Ensure it is set in .env.local as API_KEY=...");
-    }
-    
-    // Initialize AI client
-    aiInstance = new GoogleGenAI({ apiKey: apiKey || 'MISSING_ENV_KEY' });
-  }
-  return aiInstance;
+  // STRICT COMPLIANCE: API Key must be obtained exclusively from process.env.API_KEY
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 const ITINERARY_SCHEMA = {
@@ -107,41 +90,71 @@ export const generateTravelItinerary = async (
 ): Promise<Itinerary> => {
   const themeString = themes.join(", ");
   const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: "gemini-3-pro-preview",
-    contents: `Architect a ${duration}-day travel itinerary for ${destination} starting from ${startingLocation} for ${travelersCount} travelers.
-    Themes: ${themeString}. Specific Hotel Requirement: ${hotelStars}-star hotels.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: ITINERARY_SCHEMA,
-      tools: [{ googleSearch: {} }]
-    }
-  });
-  return JSON.parse(response.text || "{}") as Itinerary;
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: `Architect a ${duration}-day travel itinerary for ${destination} starting from ${startingLocation} for ${travelersCount} travelers.
+      Themes: ${themeString}. Specific Hotel Requirement: ${hotelStars}-star hotels.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: ITINERARY_SCHEMA,
+        // Removed googleSearch to prevent conflict with strict JSON schema generation
+      }
+    });
+
+    const text = response.text;
+    if (!text) throw new Error("No response generated from AI.");
+
+    const data = JSON.parse(text);
+    // Basic validation to prevent UI crashes
+    if (!data.days) data.days = [];
+    if (!data.hotelRecommendations) data.hotelRecommendations = [];
+    if (!data.travelOptions) data.travelOptions = [];
+    
+    return data as Itinerary;
+  } catch (error) {
+    console.error("AI Planner Error:", error);
+    throw error;
+  }
 };
 
 export const generateItineraryFromPrompt = async (prompt: string): Promise<Itinerary> => {
   const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: "gemini-3-pro-preview",
-    contents: `Synthesize a comprehensive itinerary based on: "${prompt}".`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: ITINERARY_SCHEMA,
-      tools: [{ googleSearch: {} }]
-    }
-  });
-  return JSON.parse(response.text || "{}") as Itinerary;
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: `Synthesize a comprehensive itinerary based on: "${prompt}".`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: ITINERARY_SCHEMA,
+        // Removed googleSearch to prevent conflict with strict JSON schema generation
+      }
+    });
+    
+    const text = response.text;
+    if (!text) throw new Error("No response generated from AI.");
+    
+    const data = JSON.parse(text);
+    return data as Itinerary;
+  } catch (error) {
+    console.error("AI Planner (Prompt) Error:", error);
+    throw error;
+  }
 };
 
 export const chatWithLocalAI = async (message: string, context: string) => {
   const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: `You are the LocalLens AI Concierge. Context: ${context}. User: ${message}.`,
-    config: { tools: [{ googleSearch: {} }, { googleMaps: {} }] }
-  });
-  return response.text || "";
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `You are the LocalLens AI Concierge. Context: ${context}. User: ${message}.`,
+      config: { tools: [{ googleSearch: {} }, { googleMaps: {} }] }
+    });
+    return response.text || "I apologize, I am unable to process that request at the moment.";
+  } catch (error) {
+    console.error("Chat Error:", error);
+    return "Connection interrupted. Please try again.";
+  }
 };
 
 export const transcribeAudio = async (base64Data: string, mimeType: string): Promise<string> => {
@@ -190,30 +203,40 @@ export const refreshHotelRecommendations = async (
   excludedHotels: string[]
 ): Promise<HotelRecommendation[]> => {
   const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: `Suggest 3 alternative ${hotelStars}-star hotels in ${destination}, excluding: ${excludedHotels.join(", ")}.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: { type: Type.ARRAY, items: ITINERARY_SCHEMA.properties.hotelRecommendations.items },
-      tools: [{ googleSearch: {} }]
-    }
-  });
-  return JSON.parse(response.text || "[]") as HotelRecommendation[];
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Suggest 3 alternative ${hotelStars}-star hotels in ${destination}, excluding: ${excludedHotels.join(", ")}.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: { type: Type.ARRAY, items: ITINERARY_SCHEMA.properties.hotelRecommendations.items },
+        // Removed googleSearch to prevent conflict with strict JSON schema generation
+      }
+    });
+    return JSON.parse(response.text || "[]") as HotelRecommendation[];
+  } catch (error) {
+    console.error("Hotel Refresh Error:", error);
+    return [];
+  }
 };
 
 export const getMoreSuggestions = async (destination: string): Promise<Activity[]> => {
   const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: `Find 5 additional unique spots in ${destination}.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: { type: Type.ARRAY, items: ITINERARY_SCHEMA.properties.days.items.properties.activities.items },
-      tools: [{ googleSearch: {} }]
-    }
-  });
-  return JSON.parse(response.text || "[]") as Activity[];
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Find 5 additional unique spots in ${destination}.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: { type: Type.ARRAY, items: ITINERARY_SCHEMA.properties.days.items.properties.activities.items },
+        // Removed googleSearch to prevent conflict with strict JSON schema generation
+      }
+    });
+    return JSON.parse(response.text || "[]") as Activity[];
+  } catch (error) {
+    console.error("Suggestions Error:", error);
+    return [];
+  }
 };
 
 export const getPlaceGrounding = async (query: string, lat?: number, lng?: number) => {
@@ -234,17 +257,24 @@ export const getPlaceGrounding = async (query: string, lat?: number, lng?: numbe
 
 export const getIconicHotspots = async (category: string = "trending") => {
   const ai = getAI();
-  const query = `List 12 unique ${category} spots in India with Maps links.`;
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: query,
-    config: { tools: [{ googleMaps: {} }] },
-  });
-  return (response.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
-    .filter((chunk: any) => chunk.maps?.uri)
-    .map((chunk: any) => ({
-      name: chunk.maps.title,
-      uri: chunk.maps.uri,
-      category: category.charAt(0).toUpperCase() + category.slice(1)
-    }));
+  const query = `Find 12 popular and unique ${category} travel destinations in India. Return the results explicitly using the Google Maps tool.`;
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: query,
+      config: { tools: [{ googleMaps: {} }] },
+    });
+    
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    return chunks
+      .filter((chunk: any) => chunk.maps?.uri && chunk.maps?.title)
+      .map((chunk: any) => ({
+        name: chunk.maps.title,
+        uri: chunk.maps.uri,
+        category: category.charAt(0).toUpperCase() + category.slice(1)
+      }));
+  } catch (error) {
+    console.error("Discovery Engine Error:", error);
+    return [];
+  }
 };
