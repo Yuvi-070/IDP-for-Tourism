@@ -11,6 +11,7 @@ const getAI = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
+// Relaxed Schema: Made mapUrl and operatorDetails optional to prevent generation failures
 const ITINERARY_SCHEMA = {
   type: Type.OBJECT,
   properties: {
@@ -38,7 +39,8 @@ const ITINERARY_SCHEMA = {
                 culturalInsight: { type: Type.STRING },
                 mapUrl: { type: Type.STRING }
               },
-              required: ["time", "location", "description", "culturalInsight", "estimatedTime", "estimatedCost", "mapUrl"]
+              // Removed mapUrl from required to improve generation success rate
+              required: ["time", "location", "description", "culturalInsight", "estimatedTime", "estimatedCost"]
             }
           }
         },
@@ -56,7 +58,8 @@ const ITINERARY_SCHEMA = {
           duration: { type: Type.STRING },
           operatorDetails: { type: Type.STRING, description: "E.g., Train Name/No, Flight Carrier, Bus Operator" }
         },
-        required: ["mode", "description", "estimatedCost", "duration", "operatorDetails"]
+        // Removed operatorDetails from required
+        required: ["mode", "description", "estimatedCost", "duration"]
       }
     },
     hotelRecommendations: {
@@ -73,7 +76,8 @@ const ITINERARY_SCHEMA = {
           webRating: { type: Type.NUMBER, description: "Real-world Web/TripAdvisor rating (e.g. 4.6)" },
           reviewCount: { type: Type.STRING, description: "Approx number of reviews (e.g. '1.2K+')" }
         },
-        required: ["name", "description", "estimatedPricePerNight", "amenities", "mapUrl", "googleRating", "webRating", "reviewCount"]
+        // Removed mapUrl from required
+        required: ["name", "description", "estimatedPricePerNight", "amenities", "googleRating", "webRating", "reviewCount"]
       }
     }
   },
@@ -91,9 +95,9 @@ export const generateTravelItinerary = async (
   const themeString = themes.join(", ");
   const ai = getAI();
   try {
-    // Using gemini-2.5-flash for reliable structured JSON generation
+    // Using gemini-3-flash-preview for balanced speed/quality and reliable JSON structure
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: `Architect a ${duration}-day travel itinerary for ${destination} starting from ${startingLocation} for ${travelersCount} travelers.
       Themes: ${themeString}. Specific Hotel Requirement: ${hotelStars}-star hotels.`,
       config: {
@@ -103,7 +107,7 @@ export const generateTravelItinerary = async (
     });
 
     const text = response.text;
-    if (!text) throw new Error("No response generated from AI.");
+    if (!text) throw new Error("AI returned empty response. The model may have been blocked or timed out.");
 
     const data = JSON.parse(text);
     // Basic validation to prevent UI crashes
@@ -121,9 +125,8 @@ export const generateTravelItinerary = async (
 export const generateItineraryFromPrompt = async (prompt: string): Promise<Itinerary> => {
   const ai = getAI();
   try {
-    // Using gemini-2.5-flash for reliable structured JSON generation
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: `Synthesize a comprehensive itinerary based on: "${prompt}".`,
       config: {
         responseMimeType: "application/json",
@@ -132,7 +135,7 @@ export const generateItineraryFromPrompt = async (prompt: string): Promise<Itine
     });
     
     const text = response.text;
-    if (!text) throw new Error("No response generated from AI.");
+    if (!text) throw new Error("AI returned empty response.");
     
     const data = JSON.parse(text);
     return data as Itinerary;
@@ -204,9 +207,8 @@ export const refreshHotelRecommendations = async (
 ): Promise<HotelRecommendation[]> => {
   const ai = getAI();
   try {
-    // Using gemini-2.5-flash for reliable structured JSON generation
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: `Suggest 3 alternative ${hotelStars}-star hotels in ${destination}, excluding: ${excludedHotels.join(", ")}.`,
       config: {
         responseMimeType: "application/json",
@@ -223,9 +225,8 @@ export const refreshHotelRecommendations = async (
 export const getMoreSuggestions = async (destination: string): Promise<Activity[]> => {
   const ai = getAI();
   try {
-    // Using gemini-2.5-flash for reliable structured JSON generation
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: `Find 5 additional unique spots in ${destination}.`,
       config: {
         responseMimeType: "application/json",
@@ -257,10 +258,11 @@ export const getPlaceGrounding = async (query: string, lat?: number, lng?: numbe
 
 export const getIconicHotspots = async (category: string = "trending") => {
   const ai = getAI();
+  // Prompt explicitly asks for Google Maps usage to ensure the tool is triggered
   const query = `Find 12 popular and unique ${category} travel destinations in India. Return the results explicitly using the Google Maps tool.`;
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.5-flash", // Must use 2.5 series for Maps
       contents: query,
       config: { tools: [{ googleMaps: {} }] },
     });

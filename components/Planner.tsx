@@ -34,9 +34,6 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
   const [expandedExtraIdx, setExpandedExtraIdx] = useState<number | null>(null);
   const [seenHotelNames, setSeenHotelNames] = useState<Set<string>>(new Set());
 
-  const [expandedTravelIdx, setExpandedTravelIdx] = useState<number | null>(null);
-  const [expandedHotelIdx, setExpandedHotelIdx] = useState<number | null>(null);
-
   useEffect(() => {
     if (initialDestination) {
       setDestinationInput(initialDestination);
@@ -76,16 +73,16 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
   const handleGenerate = async () => {
     if (mode === 'form') {
       if (!startingLocation.trim()) {
-        alert("CRITICAL ERROR: Origin Axis is required to deploy the architect.");
+        alert("Origin Axis is required.");
         return;
       }
       if (!destinationInput.trim()) {
-        alert("CRITICAL ERROR: Target Node is must to select same as ORIGIN.");
+        alert("Target Node is required.");
         return;
       }
     } else {
       if (!prompt.trim()) {
-        alert("CRITICAL ERROR: Prompt input is mandatory for Intuitive Command.");
+        alert("Please provide a description for the itinerary.");
         return;
       }
     }
@@ -111,9 +108,9 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
       if (data.destination) {
         fetchExtras(data.destination);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Odyssey synthesis failure. Please refine your parameters or check your network connection.");
+      alert(`Odyssey synthesis failure: ${error.message || "Unknown error"}. Please check your network or try again.`);
     } finally {
       setLoading(false);
     }
@@ -157,7 +154,6 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
 
   const uniqueExtras = useMemo(() => {
     if (!itinerary) return extraSuggestions;
-    // Safety check for days and activities
     if (!itinerary.days) return extraSuggestions;
     
     const currentLocations = new Set(itinerary.days.flatMap(day => (day.activities || []).map(act => act.location.toLowerCase())));
