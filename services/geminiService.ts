@@ -267,8 +267,14 @@ export const getPlaceGrounding = async (query: string, lat?: number, lng?: numbe
 
 export const getIconicHotspots = async (category: string = "trending") => {
   const ai = getAI();
-  // Prompt explicitly asks for Google Maps usage to ensure the tool is triggered
-  const query = `Find 12 popular and unique ${category} travel destinations in India. Return the results explicitly using the Google Maps tool.`;
+  
+  // Refine category for better map results.
+  // "Trending" can be too abstract for tool usage, so we map it to concrete terms.
+  const searchTerm = category === 'trending' ? 'top rated and popular tourist attractions' : `${category} destinations`;
+
+  // Prompt explicitly asks for Google Maps usage to ensure the tool is triggered for every item.
+  const query = `List 12 unique ${searchTerm} in India. You MUST use the Google Maps tool to find the specific location for each result. Return at least 10 results.`;
+  
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash", // Must use 2.5 series for Maps

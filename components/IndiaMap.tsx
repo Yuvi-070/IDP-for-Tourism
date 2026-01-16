@@ -30,6 +30,7 @@ const IndiaMap: React.FC<IndiaMapProps> = ({ onSelectDestination }) => {
 
   const fetchDiscoveryData = async (lensId: string) => {
     setLoading(true);
+    setSpots([]); // Clear previous spots while loading
     try {
       const discoveredSpots = await getIconicHotspots(lensId);
       const validSpots = discoveredSpots.filter(s => s.name && s.name.length > 2);
@@ -99,7 +100,7 @@ const IndiaMap: React.FC<IndiaMapProps> = ({ onSelectDestination }) => {
             Array(8).fill(0).map((_, i) => (
               <div key={i} className="bg-slate-900/40 rounded-[2rem] h-64 animate-pulse border border-white/5"></div>
             ))
-          ) : (
+          ) : spots.length > 0 ? (
             spots.map((spot, i) => (
               <div 
                 key={i}
@@ -161,6 +162,17 @@ const IndiaMap: React.FC<IndiaMapProps> = ({ onSelectDestination }) => {
                 </div>
               </div>
             ))
+          ) : (
+            <div className="col-span-full flex flex-col items-center justify-center py-20 bg-slate-900/40 rounded-[2rem] border-2 border-dashed border-white/5 text-center">
+              <svg className="w-12 h-12 text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+              <p className="text-slate-500 font-bold italic mb-6">Signal weak. Unable to triangulate {activeLens} nodes.</p>
+              <button 
+                onClick={() => fetchDiscoveryData(activeLens)} 
+                className="bg-white/5 hover:bg-pink-600 hover:text-white text-slate-400 px-8 py-3 rounded-full font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95"
+              >
+                Reconnect Engine
+              </button>
+            </div>
           )}
         </div>
       </div>
