@@ -154,6 +154,34 @@ export const generateItineraryFromPrompt = async (prompt: string): Promise<Itine
   }
 };
 
+export const mergeItineraries = async (itineraries: Itinerary[]): Promise<Itinerary> => {
+  const ai = getAI();
+  try {
+    const itinerariesJson = JSON.stringify(itineraries);
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Merge the following ${itineraries.length} travel itineraries into one single, cohesive, sequential itinerary. 
+      Combine the durations, costs, and locations logically. If locations are distant, suggest travel between them.
+      The output must be a single itinerary object following the schema.
+      Input Itineraries: ${itinerariesJson}`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: ITINERARY_SCHEMA,
+      }
+    });
+    
+    const text = response.text;
+    if (!text) throw new Error("AI returned empty response.");
+    
+    const data = JSON.parse(text);
+    data.isMerged = true; // Flag as merged
+    return data as Itinerary;
+  } catch (error) {
+    console.error("Merge Itineraries Error:", error);
+    throw error;
+  }
+};
+
 export const chatWithLocalAI = async (message: string, context: string) => {
   const ai = getAI();
   try {
@@ -245,6 +273,24 @@ export const getMoreSuggestions = async (destination: string): Promise<Activity[
     return JSON.parse(response.text || "[]") as Activity[];
   } catch (error) {
     console.error("Suggestions Error:", error);
+    return [];
+  }
+};
+
+export const getSpecificSuggestions = async (destination: string, query: string): Promise<Activity[]> => {
+  const ai = getAI();
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Find 5 spots in ${destination} related to "${query}".`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: { type: Type.ARRAY, items: ITINERARY_SCHEMA.properties.days.items.properties.activities.items },
+      }
+    });
+    return JSON.parse(response.text || "[]") as Activity[];
+  } catch (error) {
+    console.error("Specific Suggestions Error:", error);
     return [];
   }
 };

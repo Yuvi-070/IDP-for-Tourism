@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Hero from './components/Hero';
 import Planner from './components/Planner';
@@ -8,21 +8,98 @@ import ChatInterface from './components/ChatInterface';
 import VerificationForm from './components/VerificationForm';
 import IndiaMap from './components/IndiaMap';
 import TripDetails from './components/TripDetails';
+import AuthPage from './components/AuthPage';
+import History from './components/History';
 import { Itinerary } from './types';
+import { supabase, saveItineraryToDB } from './services/supabaseClient';
+import { mergeItineraries } from './services/geminiService';
 
 const App: React.FC = () => {
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
   const [preselectedDest, setPreselectedDest] = useState<string | null>(null);
+  const [editingItinerary, setEditingItinerary] = useState<Itinerary | null>(null);
+  const [editingDbId, setEditingDbId] = useState<string | undefined>(undefined);
   const [finalItinerary, setFinalItinerary] = useState<Itinerary | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        setSession(session);
+      } catch (e) {
+        console.warn("Auth initialization failed (likely network or config):", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      if (session) {
+        setShowAuth(false);
+        setIsGuest(false); // Clear guest mode on login
+      }
+      if (event === 'SIGNED_OUT') {
+        setIsGuest(false);
+        setShowAuth(false);
+        setActiveTab('home');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleMapSelect = (dest: string) => {
     setPreselectedDest(dest);
+    setEditingItinerary(null); // Clear editing if map selection
+    setEditingDbId(undefined);
     setActiveTab('planner');
   };
 
   const handleFinalize = (itinerary: Itinerary) => {
     setFinalItinerary(itinerary);
     setActiveTab('details');
+  };
+
+  const handleHistorySelect = (itinerary: Itinerary) => {
+    setFinalItinerary(itinerary);
+    setActiveTab('details');
+  };
+
+  const handleEditItinerary = (itinerary: Itinerary, dbId: string) => {
+    setEditingItinerary(itinerary);
+    setEditingDbId(dbId);
+    setActiveTab('planner');
+  };
+
+  const handleMergeItineraries = async (itineraries: Itinerary[]) => {
+    setIsMerging(true);
+    try {
+      const mergedPlan = await mergeItineraries(itineraries);
+      if (mergedPlan) {
+        // Save the new merged plan to DB
+        if (session?.user) {
+           await saveItineraryToDB(session.user.id, mergedPlan);
+        }
+        setEditingItinerary(mergedPlan);
+        setEditingDbId(undefined); // New plan, so no existing ID to update
+        setActiveTab('planner');
+      }
+    } catch (error) {
+      alert("Failed to merge itineraries. Please try again.");
+    } finally {
+      setIsMerging(false);
+    }
   };
 
   const renderContent = () => {
@@ -78,7 +155,7 @@ const App: React.FC = () => {
           </div>
         );
       case 'planner':
-        return <Planner initialDestination={preselectedDest} onFinalize={handleFinalize} />;
+        return <Planner initialDestination={preselectedDest} initialItinerary={editingItinerary} dbId={editingDbId} onFinalize={handleFinalize} />;
       case 'details':
         return finalItinerary ? (
           <TripDetails 
@@ -89,6 +166,8 @@ const App: React.FC = () => {
         ) : (
           <Planner onFinalize={handleFinalize} />
         );
+      case 'history':
+        return <History onSelectItinerary={handleHistorySelect} onEditItinerary={handleEditItinerary} onMergeItineraries={handleMergeItineraries} />;
       case 'guides':
         return <GuideMarketplace />;
       case 'chat':
@@ -100,9 +179,51 @@ const App: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Initializing System...</div>;
+  }
+
+  if (isMerging) {
+    return (
+       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+          <div className="text-center">
+             <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+             <h2 className="text-2xl font-black text-white uppercase tracking-widest">Merging Neural Pathways...</h2>
+             <p className="text-slate-500 mt-2 font-bold italic">Synthesizing combined itinerary.</p>
+          </div>
+       </div>
+    )
+  }
+
+  // Force Auth if no session and not in guest mode
+  if (!session && !isGuest && showAuth) {
+    return <AuthPage onGuestLogin={() => { setIsGuest(true); setShowAuth(false); }} />;
+  }
+  
+  // Initial check: if not logged in and not guest, show auth immediately on first load
+  // Resetting activeTab to 'home' on logout ensures this condition catches the logout event
+  if (!session && !isGuest && activeTab === 'home' && !showAuth) {
+      return <AuthPage onGuestLogin={() => setIsGuest(true)} />;
+  }
+
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      {renderContent()}
+    <Layout 
+      activeTab={activeTab} 
+      setActiveTab={setActiveTab} 
+      session={session}
+      onLoginClick={() => setShowAuth(true)}
+    >
+      {showAuth && !session ? (
+        <div className="fixed inset-0 z-[200] bg-slate-950">
+          <AuthPage onGuestLogin={() => { setIsGuest(true); setShowAuth(false); }} />
+          <button 
+            onClick={() => setShowAuth(false)} 
+            className="absolute top-6 right-6 text-white p-4 bg-white/10 rounded-full"
+          >
+            ✕
+          </button>
+        </div>
+      ) : renderContent()}
     </Layout>
   );
 };

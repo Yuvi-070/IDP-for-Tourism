@@ -22,14 +22,14 @@ const ChatInterface: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([{
-        id: 'welcome',
-        sender: 'ai',
-        text: 'Namaste! I am your AI Journey Concierge. Whether you have a photo of a mysterious landmark or a complex cultural query, I am here to synthesize Bharat for you.',
-        timestamp: new Date()
-      }]);
-    }
+    // Initialize with welcome message. History is no longer loaded from DB.
+    setMessages([{
+      id: 'welcome',
+      sender: 'ai',
+      text: 'Namaste! I am your AI Journey Concierge. Whether you have a photo of a mysterious landmark or a complex cultural query, I am here to synthesize Bharat for you.',
+      timestamp: new Date()
+    }]);
+
     return () => {
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -120,13 +120,14 @@ const ChatInterface: React.FC = () => {
 
     const currentImage = selectedImage;
     const currentInput = input;
+    const timestamp = new Date();
 
     const userMsg: ImageMessage = {
       id: Date.now().toString(),
       sender: 'user',
       text: currentInput || 'Processing visual coordinate...',
       imagePreview: currentImage?.preview,
-      timestamp: new Date()
+      timestamp: timestamp
     };
 
     setMessages(prev => [...prev, userMsg]);
@@ -134,6 +135,8 @@ const ChatInterface: React.FC = () => {
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setSelectedImage(null);
     setIsTyping(true);
+
+    // Chat persistence removed to keep history ephemeral.
 
     try {
       let response = '';
@@ -150,6 +153,7 @@ const ChatInterface: React.FC = () => {
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiMsg]);
+      
     } catch (error) {
       console.error(error);
       const errorMsg: ImageMessage = {
@@ -282,7 +286,7 @@ const ChatInterface: React.FC = () => {
                 )}
 
                 <div className={`mt-6 pt-6 sm:mt-8 sm:pt-8 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${msg.sender === 'user' ? 'text-white/40' : 'text-slate-600'}`}>
-                  <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest">{msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   {msg.sender === 'ai' && (
                     <div className="flex flex-wrap items-center gap-3 sm:gap-6 w-full sm:w-auto">
                       <div className="flex bg-black/40 rounded-full px-4 py-1.5 border border-white/5 flex-grow sm:flex-grow-0">

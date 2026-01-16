@@ -1,15 +1,18 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { INDIAN_DESTINATIONS, THEMES } from '../constants';
-import { generateTravelItinerary, generateItineraryFromPrompt, getMoreSuggestions, refreshHotelRecommendations } from '../services/geminiService';
+import { generateTravelItinerary, generateItineraryFromPrompt, getMoreSuggestions, refreshHotelRecommendations, getSpecificSuggestions } from '../services/geminiService';
+import { saveItineraryToDB, supabase } from '../services/supabaseClient';
 import { Itinerary, Activity, HotelRecommendation, TravelOption } from '../types';
 
 interface PlannerProps {
   initialDestination?: string | null;
+  initialItinerary?: Itinerary | null;
+  dbId?: string; // ID of the itinerary in the database for updates
   onFinalize: (itinerary: Itinerary) => void;
 }
 
-const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => {
+const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary, dbId, onFinalize }) => {
   const [mode, setMode] = useState<'form' | 'prompt'>('form');
   const [destinationInput, setDestinationInput] = useState('');
   const [showDestSuggestions, setShowDestSuggestions] = useState(false);
@@ -29,16 +32,49 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
   const [loading, setLoading] = useState(false);
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
   const [extraSuggestions, setExtraSuggestions] = useState<Activity[]>([]);
+  const [discoverySearch, setDiscoverySearch] = useState('');
   const [loadingExtras, setLoadingExtras] = useState(false);
   const [loadingHotels, setLoadingHotels] = useState(false);
   const [expandedExtraIdx, setExpandedExtraIdx] = useState<number | null>(null);
   const [seenHotelNames, setSeenHotelNames] = useState<Set<string>>(new Set());
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentDbId, setCurrentDbId] = useState<string | undefined>(dbId);
 
+  // Effect to load initial itinerary for editing
   useEffect(() => {
-    if (initialDestination) {
+    if (initialItinerary) {
+      setItinerary(initialItinerary);
+      setDestinationInput(initialItinerary.destination);
+      setStartingLocation(initialItinerary.startingLocation);
+      setDuration(initialItinerary.duration);
+      setTravelersCount(initialItinerary.travelersCount);
+      setHotelStars(3); // Default to 3 as stars aren't explicitly saved in simple itinerary struct usually
+      setCurrentDbId(dbId); // Ensure DB ID is set
+      
+      const themes = initialItinerary.theme ? initialItinerary.theme.split(',').map(t => t.trim()) : [THEMES[0]];
+      setSelectedThemes(themes);
+
+      // Populate seen hotels
+      if (initialItinerary.hotelRecommendations) {
+        setSeenHotelNames(new Set(initialItinerary.hotelRecommendations.map(h => h.name.toLowerCase())));
+      }
+
+      // Populate extras
+      fetchExtras(initialItinerary.destination);
+    } else if (initialDestination) {
       setDestinationInput(initialDestination);
+      setCurrentDbId(undefined); // New dest means new plan, no DB ID yet
     }
-  }, [initialDestination]);
+  }, [initialDestination, initialItinerary, dbId]);
+
+  // Reset DB ID if user manually changes destination input, implying a new plan should be created
+  const handleDestinationChange = (val: string) => {
+    setDestinationInput(val);
+    if (val !== initialItinerary?.destination) {
+      setCurrentDbId(undefined);
+    }
+    setShowDestSuggestions(true);
+  };
 
   const filteredStartingLocations = useMemo(() => {
     if (!startingLocation) return [];
@@ -128,6 +164,21 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
     }
   };
 
+  const handleDiscoverySearch = async () => {
+    if (!itinerary || !discoverySearch.trim()) return;
+    setLoadingExtras(true);
+    try {
+      const extras = await getSpecificSuggestions(itinerary.destination, discoverySearch);
+      setExtraSuggestions(extras);
+      setDiscoverySearch(''); // Clear input after search
+    } catch (error) {
+      console.error(error);
+      alert("Failed to locate specific nodes.");
+    } finally {
+      setLoadingExtras(false);
+    }
+  };
+
   const handleRefreshHotels = async () => {
     if (!itinerary) return;
     setLoadingHotels(true);
@@ -199,6 +250,27 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
     newItinerary.days[dayIndex].activities[activityIndex] = { ...newItinerary.days[dayIndex].activities[activityIndex], [field]: value };
     setItinerary(newItinerary);
   };
+  
+  const handleSaveAndFinalize = async () => {
+    if (!itinerary) return;
+    setIsSaving(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // If currentDbId exists, it updates. If null/undefined, it inserts.
+        await saveItineraryToDB(user.id, itinerary, currentDbId);
+        console.log(currentDbId ? "Itinerary updated." : "Itinerary saved as new.");
+      }
+      onFinalize(itinerary);
+    } catch (e) {
+      console.error("Failed to save itinerary", e);
+      // Fallback to local finalize even if cloud save fails
+      onFinalize(itinerary);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const renderTransportIcon = (mode: string) => {
     switch (mode.toLowerCase()) {
@@ -244,6 +316,9 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-pink-400">Expedition Architecture v2.5</span>
               </div>
               <h2 className="text-4xl sm:text-7xl font-black mb-4 tracking-tight leading-tight text-white">Journey <span className="textile-gradient">Architect</span></h2>
+              {currentDbId && (
+                <div className="text-pink-500 font-bold uppercase tracking-widest text-[10px]">Editing Existing Manifest (ID: ...{typeof currentDbId === 'string' || typeof currentDbId === 'number' ? String(currentDbId).slice(-4) : ''})</div>
+              )}
             </div>
             <div className="flex p-1 bg-black/40 rounded-[1.5rem] self-start border border-white/5">
               <button onClick={() => setMode('form')} className={`px-8 py-3 rounded-xl text-[10px] font-black transition-all ${mode === 'form' ? 'bg-white text-slate-950 shadow-xl' : 'text-slate-500 hover:text-slate-300'}`}>Form Axis</button>
@@ -269,10 +344,10 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
               <div className="space-y-4 relative">
                 <label className="block text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 ml-2">Target Node *</label>
                 <div className="input-pill rounded-2xl px-6 py-5 relative">
-                  <input type="text" value={destinationInput} onChange={(e) => { setDestinationInput(e.target.value); setShowDestSuggestions(true); }} onFocus={() => setShowDestSuggestions(true)} onBlur={() => setTimeout(() => setShowDestSuggestions(false), 250)} placeholder="Target (Jaipur, Varanasi...)" className="w-full bg-transparent outline-none font-black text-white text-xl placeholder:text-slate-800" />
+                  <input type="text" value={destinationInput} onChange={(e) => handleDestinationChange(e.target.value)} onFocus={() => setShowDestSuggestions(true)} onBlur={() => setTimeout(() => setShowDestSuggestions(false), 250)} placeholder="Target (Jaipur, Varanasi...)" className="w-full bg-transparent outline-none font-black text-white text-xl placeholder:text-slate-800" />
                   {showDestSuggestions && (
                     <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/98 backdrop-blur-3xl border border-white/10 rounded-2xl overflow-hidden z-[100] shadow-2xl max-h-64 overflow-y-auto custom-scroll">
-                      {filteredDestinations.map(loc => ( <button key={loc} onClick={() => { setDestinationInput(loc); setShowDestSuggestions(false); }} className="w-full text-left px-8 py-4 text-[10px] font-black uppercase hover:bg-pink-600 text-slate-400 hover:text-white transition-all border-b border-white/5 last:border-0">{loc}</button> ))}
+                      {filteredDestinations.map(loc => ( <button key={loc} onClick={() => { handleDestinationChange(loc); setShowDestSuggestions(false); }} className="w-full text-left px-8 py-4 text-[10px] font-black uppercase hover:bg-pink-600 text-slate-400 hover:text-white transition-all border-b border-white/5 last:border-0">{loc}</button> ))}
                     </div>
                   )}
                 </div>
@@ -377,13 +452,25 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
               ))}
               {/* Desktop Finalize button - follow itinerary */}
               <div className="hidden lg:flex pt-10 justify-center">
-                 <button onClick={() => onFinalize(itinerary)} className="bg-white text-slate-950 px-20 py-8 rounded-full font-black text-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.4em] w-full">Finalize Manifest</button>
+                 <button 
+                  onClick={handleSaveAndFinalize} 
+                  disabled={isSaving}
+                  className="bg-white text-slate-950 px-20 py-8 rounded-full font-black text-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.4em] w-full disabled:opacity-50 disabled:scale-100"
+                >
+                  {isSaving ? "Archiving Manifest..." : (currentDbId ? "Update Manifest" : "Finalize & Save Manifest")}
+                </button>
               </div>
             </div>
 
             {/* Finalize button - Mobile version positioned after days */}
             <div className="finalize-btn-container flex justify-center w-full lg:hidden">
-              <button onClick={() => onFinalize(itinerary)} className="bg-white text-slate-950 px-16 py-6 rounded-full font-black text-xl shadow-2xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.4em] w-full max-w-sm">Finalize Manifest</button>
+              <button 
+                onClick={handleSaveAndFinalize} 
+                disabled={isSaving}
+                className="bg-white text-slate-950 px-16 py-6 rounded-full font-black text-xl shadow-2xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.4em] w-full max-w-sm disabled:opacity-50 disabled:scale-100"
+              >
+                 {isSaving ? "Archiving..." : (currentDbId ? "Update Manifest" : "Finalize & Save Manifest")}
+              </button>
             </div>
 
             {/* COLUMN 2 - Right Sidebar - Reordered as requested: Discovery -> Vector -> Sanctuary */}
@@ -391,10 +478,28 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, onFinalize }) => 
               
               {/* 1. Discovery Vault */}
               <div className="cockpit-panel rounded-3xl p-6 border border-white/10 shadow-2xl">
-                <div className="flex items-center justify-between mb-6">
-                   <h5 className="font-black text-pink-500 uppercase tracking-[0.3em] text-[10px]">Discovery Vault</h5>
-                   <button onClick={() => fetchExtras(itinerary.destination)} className="text-pink-500/40 hover:text-pink-500"><svg className={`w-4 h-4 ${loadingExtras ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg></button>
+                <div className="flex flex-col mb-6 gap-4">
+                  <div className="flex items-center justify-between">
+                     <h5 className="font-black text-pink-500 uppercase tracking-[0.3em] text-[10px]">Discovery Vault</h5>
+                     <button onClick={() => fetchExtras(itinerary.destination)} className="text-pink-500/40 hover:text-pink-500"><svg className={`w-4 h-4 ${loadingExtras ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg></button>
+                  </div>
+                  
+                  {/* Search input for specific suggestions */}
+                  <div className="flex items-center space-x-2">
+                     <input 
+                       type="text" 
+                       value={discoverySearch}
+                       onChange={(e) => setDiscoverySearch(e.target.value)}
+                       onKeyDown={(e) => e.key === 'Enter' && handleDiscoverySearch()}
+                       placeholder="e.g. Vegan cafes, Museums..."
+                       className="bg-black/30 text-white text-[10px] font-bold px-3 py-2 rounded-lg border border-white/10 w-full outline-none focus:border-pink-500/50"
+                     />
+                     <button onClick={handleDiscoverySearch} disabled={loadingExtras} className="p-2 bg-pink-600/20 text-pink-500 rounded-lg hover:bg-pink-600 hover:text-white transition-all disabled:opacity-50">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                     </button>
+                  </div>
                 </div>
+
                 <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scroll pr-2">
                   {uniqueExtras.map((extra, idx) => {
                     const isExpanded = expandedExtraIdx === idx;

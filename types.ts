@@ -34,6 +34,8 @@ export interface HotelRecommendation {
 }
 
 export interface Itinerary {
+  id?: string; // Database ID for updates
+  isMerged?: boolean; // Flag for merged plans
   destination: string;
   duration: number;
   theme: string;
