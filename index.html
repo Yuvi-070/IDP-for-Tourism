@@ -9,21 +9,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
       :root {
-        --rani-pink: #ec4899;
-        --saffron: #f59e0b;
+        --rani-pink: #db2777; /* Deeper, warmer pink */
+        --sunset-gold: #f59e0b;
+        --royal-purple: #7c3aed;
       }
       body {
         font-family: 'Plus Jakarta Sans', sans-serif;
-        background-color: #020617;
+        background-color: #0f172a; /* Slate 900 base for warmth */
         color: #f1f5f9;
         overflow-x: hidden;
       }
       .textile-gradient {
-        background: linear-gradient(135deg, #f472b6 0%, #fb923c 50%, #fcd34d 100%);
+        background: linear-gradient(135deg, #f472b6 0%, #fb923c 40%, #fcd34d 80%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-size: 200% auto;
-        animation: gradient-shift 8s ease infinite;
+        animation: gradient-shift 6s ease infinite;
       }
       @keyframes gradient-shift {
         0% { background-position: 0% 50%; }
@@ -38,28 +39,20 @@
         height: 100%;
         z-index: -1;
         background: 
-          radial-gradient(circle at 0% 0%, rgba(236, 72, 153, 0.05) 0%, transparent 50%),
-          radial-gradient(circle at 100% 100%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
+          radial-gradient(circle at 15% 50%, rgba(124, 58, 237, 0.08) 0%, transparent 50%),
+          radial-gradient(circle at 85% 30%, rgba(251, 146, 60, 0.08) 0%, transparent 50%);
         pointer-events: none;
-      }
-      .noise-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        pointer-events: none;
-        opacity: 0.03;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
       }
       ::-webkit-scrollbar {
         width: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: #020617;
+        background: #0f172a;
       }
       ::-webkit-scrollbar-thumb {
         background: rgba(255, 255, 255, 0.1);
         border-radius: 100px;
-        border: 2px solid #020617;
+        border: 2px solid #0f172a;
       }
       ::-webkit-scrollbar-thumb:hover {
         background: var(--rani-pink);
@@ -83,9 +76,8 @@
     }
     </script>
   </head>
-  <body class="selection:bg-pink-500/30 selection:text-pink-200">
+  <body class="selection:bg-orange-500/30 selection:text-orange-200">
     <div class="mesh-bg"></div>
-    <div class="noise-overlay"></div>
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
   </body>

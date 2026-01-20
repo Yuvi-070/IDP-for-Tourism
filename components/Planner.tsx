@@ -29,6 +29,9 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
   const [isAddingTheme, setIsAddingTheme] = useState(false);
   
   const [prompt, setPrompt] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
   const [loading, setLoading] = useState(false);
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
   const [extraSuggestions, setExtraSuggestions] = useState<Activity[]>([]);
@@ -40,6 +43,30 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
   const [isSaving, setIsSaving] = useState(false);
   const [currentDbId, setCurrentDbId] = useState<string | undefined>(dbId);
 
+  // Stats Logic
+  const tripStats = useMemo(() => {
+    if (!itinerary || !itinerary.days) return null;
+    let totalActivities = 0;
+    let culturalKeywords = ['temple', 'museum', 'history', 'art', 'ruins', 'fort', 'palace', 'shrine'];
+    let culturalCount = 0;
+
+    itinerary.days.forEach(day => {
+        day.activities.forEach(act => {
+            totalActivities++;
+            if (culturalKeywords.some(k => act.description.toLowerCase().includes(k) || act.location.toLowerCase().includes(k))) {
+                culturalCount++;
+            }
+        });
+    });
+
+    const culturalDensity = totalActivities > 0 ? Math.round((culturalCount / totalActivities) * 100) : 0;
+    const pace = totalActivities / (itinerary.days.length || 1);
+    const paceLabel = pace > 4 ? "High Octane" : pace > 2 ? "Balanced Flow" : "Slow Travel";
+
+    return { culturalDensity, paceLabel, totalActivities };
+  }, [itinerary]);
+
+
   // Effect to load initial itinerary for editing
   useEffect(() => {
     if (initialItinerary) {
@@ -48,26 +75,22 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
       setStartingLocation(initialItinerary.startingLocation);
       setDuration(initialItinerary.duration);
       setTravelersCount(initialItinerary.travelersCount);
-      setHotelStars(3); // Default to 3 as stars aren't explicitly saved in simple itinerary struct usually
-      setCurrentDbId(dbId); // Ensure DB ID is set
+      setHotelStars(3); 
+      setCurrentDbId(dbId); 
       
       const themes = initialItinerary.theme ? initialItinerary.theme.split(',').map(t => t.trim()) : [THEMES[0]];
       setSelectedThemes(themes);
 
-      // Populate seen hotels
       if (initialItinerary.hotelRecommendations) {
         setSeenHotelNames(new Set(initialItinerary.hotelRecommendations.map(h => h.name.toLowerCase())));
       }
-
-      // Populate extras
       fetchExtras(initialItinerary.destination);
     } else if (initialDestination) {
       setDestinationInput(initialDestination);
-      setCurrentDbId(undefined); // New dest means new plan, no DB ID yet
+      setCurrentDbId(undefined);
     }
   }, [initialDestination, initialItinerary, dbId]);
 
-  // Reset DB ID if user manually changes destination input, implying a new plan should be created
   const handleDestinationChange = (val: string) => {
     setDestinationInput(val);
     if (val !== initialItinerary?.destination) {
@@ -106,6 +129,43 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
     }
   };
 
+  // Voice Input Handler
+  const toggleListening = () => {
+    if (isListening) {
+      if (recognitionRef.current) recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+
+    if (!('webkitSpeechRecognition' in window)) {
+      alert("Voice input is not supported in this browser.");
+      return;
+    }
+
+    const recognition = new (window as any).webkitSpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-IN'; // Indian English
+
+    recognition.onstart = () => setIsListening(true);
+    
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setPrompt(prev => prev + (prev ? ' ' : '') + transcript);
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error(event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
   const handleGenerate = async () => {
     if (mode === 'form') {
       if (!startingLocation.trim()) {
@@ -136,8 +196,6 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
       if (!data) throw new Error("Received empty data from synthesis.");
       
       setItinerary(data);
-      
-      // Safety check for optional arrays
       const hotels = data.hotelRecommendations || [];
       setSeenHotelNames(new Set(hotels.map(h => h.name.toLowerCase())));
       
@@ -146,7 +204,7 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
       }
     } catch (error: any) {
       console.error(error);
-      alert(`Odyssey synthesis failure: ${error.message || "Unknown error"}. Please check your network or try again.`);
+      alert(`Odyssey synthesis failure: ${error.message || "Unknown error"}.`);
     } finally {
       setLoading(false);
     }
@@ -170,7 +228,7 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
     try {
       const extras = await getSpecificSuggestions(itinerary.destination, discoverySearch);
       setExtraSuggestions(extras);
-      setDiscoverySearch(''); // Clear input after search
+      setDiscoverySearch('');
     } catch (error) {
       console.error(error);
       alert("Failed to locate specific nodes.");
@@ -204,9 +262,7 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
   };
 
   const uniqueExtras = useMemo(() => {
-    if (!itinerary) return extraSuggestions;
-    if (!itinerary.days) return extraSuggestions;
-    
+    if (!itinerary || !itinerary.days) return extraSuggestions;
     const currentLocations = new Set(itinerary.days.flatMap(day => (day.activities || []).map(act => act.location.toLowerCase())));
     return extraSuggestions.filter(extra => !currentLocations.has(extra.location.toLowerCase()));
   }, [itinerary, extraSuggestions]);
@@ -254,18 +310,14 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
   const handleSaveAndFinalize = async () => {
     if (!itinerary) return;
     setIsSaving(true);
-    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // If currentDbId exists, it updates. If null/undefined, it inserts.
         await saveItineraryToDB(user.id, itinerary, currentDbId);
-        console.log(currentDbId ? "Itinerary updated." : "Itinerary saved as new.");
       }
       onFinalize(itinerary);
     } catch (e) {
       console.error("Failed to save itinerary", e);
-      // Fallback to local finalize even if cloud save fails
       onFinalize(itinerary);
     } finally {
       setIsSaving(false);
@@ -392,7 +444,21 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
               </div>
             </div>
           ) : (
-            <div className="input-pill rounded-[2rem] px-8 py-10"> <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe intent..." className="w-full bg-transparent h-40 outline-none font-black text-white text-xl placeholder:text-slate-800 leading-tight" /> </div>
+            <div className="input-pill rounded-[2rem] px-8 py-10 relative">
+              <textarea 
+                value={prompt} 
+                onChange={(e) => setPrompt(e.target.value)} 
+                placeholder="Describe intent (e.g. 'A week in Kerala focusing on backwaters and ayurveda for a couple')..." 
+                className="w-full bg-transparent h-40 outline-none font-black text-white text-xl placeholder:text-slate-800 leading-tight resize-none" 
+              />
+              <button 
+                onClick={toggleListening}
+                className={`absolute bottom-6 right-6 p-4 rounded-full transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white/10 text-slate-400 hover:text-white'}`}
+                title="Voice Input"
+              >
+                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+              </button>
+            </div>
           )}
 
           <button onClick={handleGenerate} disabled={loading} className="w-full mt-10 py-6 rounded-[2rem] font-black text-white text-2xl bg-gradient-to-r from-pink-600 to-orange-500 shadow-xl uppercase tracking-[0.4em] transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center space-x-4">
@@ -401,182 +467,205 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
         </div>
 
         {itinerary && itinerary.days && (
-          <div className="planner-grid grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-            {/* COLUMN 1 - Sequence */}
-            <div className="itinerary-stack lg:col-span-8 space-y-16">
-              {itinerary.days.map((day, dIdx) => (
-                <div key={dIdx} className="relative">
-                  <div className="flex items-center space-x-6 mb-10">
-                    <span className="text-4xl sm:text-5xl font-black textile-gradient tracking-tighter opacity-40">0{day.day}</span>
-                    <div className="h-px flex-grow bg-white/5"></div>
-                  </div>
-                  <div className="space-y-12 pl-0 flow-line relative">
-                    {day.activities && day.activities.map((activity, aIdx) => (
-                      <div key={aIdx} className="relative pl-10 sm:pl-24">
-                        <div className="absolute left-[1.5rem] sm:left-[3rem] top-10 w-6 h-6 bg-white shadow-xl rounded-xl z-10 ring-4 ring-slate-950 transform -translate-x-1/2 flex items-center justify-center"> <div className="w-1.5 h-1.5 bg-pink-600 rounded-full"></div> </div>
-                        <div className="bg-slate-900/40 backdrop-blur-2xl rounded-[1.5rem] p-6 sm:p-10 border border-white/5 shadow-xl hover:border-pink-500/30 transition-all">
-                          <div className="flex flex-col gap-6">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                              <div className="flex-grow">
-                                <div className="flex items-center space-x-4 mb-2"> 
-                                  <input 
-                                    type="time" 
-                                    value={activity.time} 
-                                    onChange={(e) => handleUpdateActivity(dIdx, aIdx, 'time', e.target.value)}
-                                    className="bg-black/40 text-white text-sm font-black px-3 py-1.5 rounded-lg border border-white/10 outline-none"
-                                  />
-                                  <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">{activity.estimatedTime}</span> 
+          <>
+            {/* Trip Pulse Analytics Dashboard */}
+            <div className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-6">
+                <div className="bg-slate-900/60 border border-white/5 rounded-3xl p-6 flex flex-col items-center justify-center text-center">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-pink-500 mb-2">Cultural Density</span>
+                    <div className="text-4xl font-black text-white mb-1">{tripStats?.culturalDensity}%</div>
+                    <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-1000" style={{width: `${tripStats?.culturalDensity}%`}}></div>
+                    </div>
+                </div>
+                <div className="bg-slate-900/60 border border-white/5 rounded-3xl p-6 flex flex-col items-center justify-center text-center">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-orange-500 mb-2">Pace Analysis</span>
+                    <div className="text-2xl font-black text-white mb-1">{tripStats?.paceLabel}</div>
+                    <span className="text-[9px] text-slate-500 font-bold">~{Math.round((tripStats?.totalActivities || 0) / (itinerary.days.length || 1))} activities/day</span>
+                </div>
+                <div className="bg-slate-900/60 border border-white/5 rounded-3xl p-6 flex flex-col items-center justify-center text-center">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-2">Eco-Alignment</span>
+                    <div className="text-2xl font-black text-white mb-1">Standard</div>
+                     <span className="text-[9px] text-slate-500 font-bold">Try trains over flights to improve</span>
+                </div>
+            </div>
+
+            <div className="planner-grid grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+              {/* COLUMN 1 - Sequence */}
+              <div className="itinerary-stack lg:col-span-8 space-y-16">
+                {itinerary.days.map((day, dIdx) => (
+                  <div key={dIdx} className="relative">
+                    <div className="flex items-center space-x-6 mb-10">
+                      <span className="text-4xl sm:text-5xl font-black textile-gradient tracking-tighter opacity-40">0{day.day}</span>
+                      <div className="h-px flex-grow bg-white/5"></div>
+                    </div>
+                    <div className="space-y-12 pl-0 flow-line relative">
+                      {day.activities && day.activities.map((activity, aIdx) => (
+                        <div key={aIdx} className="relative pl-10 sm:pl-24">
+                          <div className="absolute left-[1.5rem] sm:left-[3rem] top-10 w-6 h-6 bg-white shadow-xl rounded-xl z-10 ring-4 ring-slate-950 transform -translate-x-1/2 flex items-center justify-center"> <div className="w-1.5 h-1.5 bg-pink-600 rounded-full"></div> </div>
+                          <div className="bg-slate-900/40 backdrop-blur-2xl rounded-[1.5rem] p-6 sm:p-10 border border-white/5 shadow-xl hover:border-pink-500/30 transition-all">
+                            <div className="flex flex-col gap-6">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex-grow">
+                                  <div className="flex items-center space-x-4 mb-2"> 
+                                    <input 
+                                      type="time" 
+                                      value={activity.time} 
+                                      onChange={(e) => handleUpdateActivity(dIdx, aIdx, 'time', e.target.value)}
+                                      className="bg-black/40 text-white text-sm font-black px-3 py-1.5 rounded-lg border border-white/10 outline-none"
+                                    />
+                                    <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">{activity.estimatedTime}</span> 
+                                  </div>
+                                  <h4 className="text-xl sm:text-3xl font-black text-white tracking-tight">{activity.location}</h4>
                                 </div>
-                                <h4 className="text-xl sm:text-3xl font-black text-white tracking-tight">{activity.location}</h4>
-                              </div>
-                              <div className="flex flex-col sm:flex-row items-center gap-4">
-                                <div className="flex flex-row space-x-2">
-                                   <button onClick={() => handleReorderActivity(dIdx, aIdx, 'up')} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-all" disabled={aIdx === 0}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 15l7-7 7 7"/></svg></button>
-                                   <button onClick={() => handleReorderActivity(dIdx, aIdx, 'down')} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-all" disabled={!day.activities || aIdx === day.activities.length - 1}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M19 9l-7 7-7-7"/></svg></button>
+                                <div className="flex flex-col sm:flex-row items-center gap-4">
+                                  <div className="flex flex-row space-x-2">
+                                     <button onClick={() => handleReorderActivity(dIdx, aIdx, 'up')} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-all" disabled={aIdx === 0}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 15l7-7 7 7"/></svg></button>
+                                     <button onClick={() => handleReorderActivity(dIdx, aIdx, 'down')} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-all" disabled={!day.activities || aIdx === day.activities.length - 1}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M19 9l-7 7-7-7"/></svg></button>
+                                  </div>
+                                  <span className="text-emerald-400 bg-emerald-500/10 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest w-fit">{activity.estimatedCost}</span>
                                 </div>
-                                <span className="text-emerald-400 bg-emerald-500/10 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest w-fit">{activity.estimatedCost}</span>
                               </div>
-                            </div>
-                            <p className="text-slate-400 font-medium italic text-sm sm:text-base leading-relaxed">"{activity.description}"</p>
-                            <div className="bg-black/60 p-5 sm:p-6 rounded-2xl text-xs sm:text-sm font-black italic text-slate-300 border border-white/5"> <span className="text-pink-500 uppercase tracking-widest text-[8px] block mb-2 opacity-60">Cultural Insight:</span> "{activity.culturalInsight}" </div>
-                            <div className="flex justify-end gap-4 pt-4 border-t border-white/5">
-                               <button onClick={() => window.open(activity.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location)}`, '_blank')} className="text-emerald-400 font-black text-[9px] uppercase tracking-widest flex items-center space-x-2"> <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg> <span>Maps</span> </button>
-                               <button onClick={() => handleRemoveActivity(dIdx, aIdx)} className="text-slate-600 hover:text-red-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                              <p className="text-slate-400 font-medium italic text-sm sm:text-base leading-relaxed">"{activity.description}"</p>
+                              <div className="bg-black/60 p-5 sm:p-6 rounded-2xl text-xs sm:text-sm font-black italic text-slate-300 border border-white/5"> <span className="text-pink-500 uppercase tracking-widest text-[8px] block mb-2 opacity-60">Cultural Insight:</span> "{activity.culturalInsight}" </div>
+                              <div className="flex justify-end gap-4 pt-4 border-t border-white/5">
+                                 <button onClick={() => window.open(activity.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.location)}`, '_blank')} className="text-emerald-400 font-black text-[9px] uppercase tracking-widest flex items-center space-x-2"> <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg> <span>Maps</span> </button>
+                                 <button onClick={() => handleRemoveActivity(dIdx, aIdx)} className="text-slate-600 hover:text-red-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                              </div>
                             </div>
                           </div>
                         </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {/* Desktop Finalize button - follow itinerary */}
+                <div className="hidden lg:flex pt-10 justify-center">
+                   <button 
+                    onClick={handleSaveAndFinalize} 
+                    disabled={isSaving}
+                    className="bg-white text-slate-950 px-20 py-8 rounded-full font-black text-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.4em] w-full disabled:opacity-50 disabled:scale-100"
+                  >
+                    {isSaving ? "Archiving Manifest..." : (currentDbId ? "Update Manifest" : "Finalize & Save Manifest")}
+                  </button>
+                </div>
+              </div>
+
+              {/* Finalize button - Mobile version positioned after days */}
+              <div className="finalize-btn-container flex justify-center w-full lg:hidden">
+                <button 
+                  onClick={handleSaveAndFinalize} 
+                  disabled={isSaving}
+                  className="bg-white text-slate-950 px-16 py-6 rounded-full font-black text-xl shadow-2xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.4em] w-full max-w-sm disabled:opacity-50 disabled:scale-100"
+                >
+                   {isSaving ? "Archiving..." : (currentDbId ? "Update Manifest" : "Finalize & Save Manifest")}
+                </button>
+              </div>
+
+              {/* COLUMN 2 - Right Sidebar - Reordered as requested: Discovery -> Vector -> Sanctuary */}
+              <div className="sidebar-stack lg:col-span-4 space-y-8 h-fit lg:sticky lg:top-32">
+                
+                {/* 1. Discovery Vault */}
+                <div className="cockpit-panel rounded-3xl p-6 border border-white/10 shadow-2xl">
+                  <div className="flex flex-col mb-6 gap-4">
+                    <div className="flex items-center justify-between">
+                       <h5 className="font-black text-pink-500 uppercase tracking-[0.3em] text-[10px]">Discovery Vault</h5>
+                       <button onClick={() => fetchExtras(itinerary.destination)} className="text-pink-500/40 hover:text-pink-500"><svg className={`w-4 h-4 ${loadingExtras ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg></button>
+                    </div>
+                    
+                    {/* Search input for specific suggestions */}
+                    <div className="flex items-center space-x-2">
+                       <input 
+                         type="text" 
+                         value={discoverySearch}
+                         onChange={(e) => setDiscoverySearch(e.target.value)}
+                         onKeyDown={(e) => e.key === 'Enter' && handleDiscoverySearch()}
+                         placeholder="e.g. Vegan cafes, Museums..."
+                         className="bg-black/30 text-white text-[10px] font-bold px-3 py-2 rounded-lg border border-white/10 w-full outline-none focus:border-pink-500/50"
+                       />
+                       <button onClick={handleDiscoverySearch} disabled={loadingExtras} className="p-2 bg-pink-600/20 text-pink-500 rounded-lg hover:bg-pink-600 hover:text-white transition-all disabled:opacity-50">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                       </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scroll pr-2">
+                    {uniqueExtras.map((extra, idx) => {
+                      const isExpanded = expandedExtraIdx === idx;
+                      return (
+                        <div key={idx} className={`bg-black/40 rounded-xl p-4 border transition-all cursor-pointer ${isExpanded ? 'border-pink-500/50 bg-black/60 shadow-xl' : 'border-white/5 hover:border-pink-500/30'}`} onClick={() => setExpandedExtraIdx(isExpanded ? null : idx)}>
+                           <div className="flex justify-between items-start mb-1">
+                              <h6 className="font-black text-white text-[11px] pr-2 uppercase tracking-tight leading-tight">{extra.location}</h6>
+                              <span className="text-[8px] text-emerald-400 font-black uppercase whitespace-nowrap">{extra.estimatedCost}</span>
+                           </div>
+                           <p className={`text-[9px] text-slate-500 italic ${isExpanded ? '' : 'line-clamp-1'}`}>"{extra.description}"</p>
+                           {isExpanded && (
+                             <div className="mt-4 pt-4 border-t border-white/5 space-y-4 animate-in fade-in">
+                                <div className="bg-slate-900/60 p-3 rounded-lg text-[10px] italic text-slate-300 border border-white/5">
+                                  <span className="text-pink-500 uppercase tracking-widest text-[8px] block mb-1 opacity-60">Cultural Insight:</span>
+                                  "{extra.culturalInsight}"
+                                </div>
+                                <div className="flex gap-2">
+                                  <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(extra.location)}`, '_blank'); }} className="flex-1 px-2 py-2 text-[8px] font-black uppercase bg-emerald-600/10 text-emerald-400 rounded-lg border border-emerald-500/10 hover:bg-emerald-600 hover:text-white transition-all">Show Map</button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {itinerary.days && itinerary.days.map((_, i) => ( 
+                                    <button key={i} onClick={(e) => { e.stopPropagation(); handleAddFromExtras(extra, i); }} className="px-2 py-2 text-[7px] font-black uppercase text-slate-400 hover:bg-white hover:text-slate-950 rounded-lg border border-white/5 transition-all">Add: Day 0{i+1}</button> 
+                                  ))}
+                                </div>
+                             </div>
+                           )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Vector Analysis */}
+                <div className="cockpit-panel rounded-3xl p-6 border border-white/10 shadow-2xl">
+                  <h5 className="font-black text-orange-500 uppercase tracking-[0.3em] text-[10px] mb-6 flex items-center gap-2"> Vector Analysis </h5>
+                  <div className="space-y-4">
+                    {itinerary.travelOptions && itinerary.travelOptions.map((opt, i) => (
+                      <div key={i} className="bg-black/40 rounded-2xl p-4 border border-white/5 hover:border-orange-500/30 transition-all">
+                         <div className="flex justify-between items-center mb-2">
+                            <div className="flex items-center space-x-3">
+                               <div className="w-8 h-8 bg-orange-500/10 rounded-lg flex items-center justify-center text-orange-500"> {renderTransportIcon(opt.mode)} </div>
+                               <div>
+                                  <h6 className="text-xs font-black text-white uppercase">{opt.mode}</h6>
+                                  <p className="text-[8px] text-slate-500 font-bold uppercase">{opt.operatorDetails}</p>
+                               </div>
+                            </div>
+                            <span className="text-emerald-400 font-black text-xs">{opt.estimatedCost}</span>
+                         </div>
+                         <p className="text-[10px] text-slate-400 font-medium italic mt-3">"{opt.description}"</p>
+                         <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/search?q=book+${opt.mode.toLowerCase()}+from+${itinerary.startingLocation}+to+${itinerary.destination.split(' (')[0]}`, '_blank'); }} className="w-full mt-4 py-2 bg-white/5 border border-white/10 text-white font-black text-[9px] uppercase tracking-widest hover:bg-white hover:text-slate-950 transition-all rounded-lg">Redirect to Booking</button>
                       </div>
                     ))}
                   </div>
                 </div>
-              ))}
-              {/* Desktop Finalize button - follow itinerary */}
-              <div className="hidden lg:flex pt-10 justify-center">
-                 <button 
-                  onClick={handleSaveAndFinalize} 
-                  disabled={isSaving}
-                  className="bg-white text-slate-950 px-20 py-8 rounded-full font-black text-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.4em] w-full disabled:opacity-50 disabled:scale-100"
-                >
-                  {isSaving ? "Archiving Manifest..." : (currentDbId ? "Update Manifest" : "Finalize & Save Manifest")}
-                </button>
-              </div>
-            </div>
 
-            {/* Finalize button - Mobile version positioned after days */}
-            <div className="finalize-btn-container flex justify-center w-full lg:hidden">
-              <button 
-                onClick={handleSaveAndFinalize} 
-                disabled={isSaving}
-                className="bg-white text-slate-950 px-16 py-6 rounded-full font-black text-xl shadow-2xl hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.4em] w-full max-w-sm disabled:opacity-50 disabled:scale-100"
-              >
-                 {isSaving ? "Archiving..." : (currentDbId ? "Update Manifest" : "Finalize & Save Manifest")}
-              </button>
-            </div>
-
-            {/* COLUMN 2 - Right Sidebar - Reordered as requested: Discovery -> Vector -> Sanctuary */}
-            <div className="sidebar-stack lg:col-span-4 space-y-8 h-fit lg:sticky lg:top-32">
-              
-              {/* 1. Discovery Vault */}
-              <div className="cockpit-panel rounded-3xl p-6 border border-white/10 shadow-2xl">
-                <div className="flex flex-col mb-6 gap-4">
-                  <div className="flex items-center justify-between">
-                     <h5 className="font-black text-pink-500 uppercase tracking-[0.3em] text-[10px]">Discovery Vault</h5>
-                     <button onClick={() => fetchExtras(itinerary.destination)} className="text-pink-500/40 hover:text-pink-500"><svg className={`w-4 h-4 ${loadingExtras ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg></button>
+                {/* 3. Sanctuary Stays */}
+                <div className="cockpit-panel rounded-3xl p-6 border border-white/10 shadow-2xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <h5 className="font-black text-emerald-500 uppercase tracking-[0.3em] text-[10px]">Sanctuary Stays</h5>
+                    <button onClick={handleRefreshHotels} className="text-emerald-500/40 hover:text-emerald-500"><svg className={`w-4 h-4 ${loadingHotels ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg></button>
                   </div>
-                  
-                  {/* Search input for specific suggestions */}
-                  <div className="flex items-center space-x-2">
-                     <input 
-                       type="text" 
-                       value={discoverySearch}
-                       onChange={(e) => setDiscoverySearch(e.target.value)}
-                       onKeyDown={(e) => e.key === 'Enter' && handleDiscoverySearch()}
-                       placeholder="e.g. Vegan cafes, Museums..."
-                       className="bg-black/30 text-white text-[10px] font-bold px-3 py-2 rounded-lg border border-white/10 w-full outline-none focus:border-pink-500/50"
-                     />
-                     <button onClick={handleDiscoverySearch} disabled={loadingExtras} className="p-2 bg-pink-600/20 text-pink-500 rounded-lg hover:bg-pink-600 hover:text-white transition-all disabled:opacity-50">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                     </button>
-                  </div>
-                </div>
-
-                <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scroll pr-2">
-                  {uniqueExtras.map((extra, idx) => {
-                    const isExpanded = expandedExtraIdx === idx;
-                    return (
-                      <div key={idx} className={`bg-black/40 rounded-xl p-4 border transition-all cursor-pointer ${isExpanded ? 'border-pink-500/50 bg-black/60 shadow-xl' : 'border-white/5 hover:border-pink-500/30'}`} onClick={() => setExpandedExtraIdx(isExpanded ? null : idx)}>
-                         <div className="flex justify-between items-start mb-1">
-                            <h6 className="font-black text-white text-[11px] pr-2 uppercase tracking-tight leading-tight">{extra.location}</h6>
-                            <span className="text-[8px] text-emerald-400 font-black uppercase whitespace-nowrap">{extra.estimatedCost}</span>
+                  <div className="space-y-4">
+                    {itinerary.hotelRecommendations && itinerary.hotelRecommendations.map((hotel, i) => (
+                      <div key={i} className="bg-black/40 rounded-2xl p-4 border border-white/5 hover:border-emerald-500/30 transition-all">
+                         <div className="flex justify-between items-start mb-2"> <h6 className="text-xs font-black text-white uppercase truncate pr-2">{hotel.name}</h6> <span className="text-[9px] text-emerald-400 font-black whitespace-nowrap">{hotel.estimatedPricePerNight}</span> </div>
+                         <div className="flex items-center space-x-4 mb-4 mt-2">
+                            <div className="flex flex-col"> <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Google Reviewed</span> <div className="flex items-center gap-0.5">{renderStars(hotel.googleRating)} <span className="text-[8px] text-slate-400 ml-1">({hotel.googleRating})</span></div> </div>
+                            <div className="flex flex-col border-l border-white/5 pl-4"> <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Web Reviewed</span> <div className="flex items-center gap-0.5">{renderStars(hotel.webRating)} <span className="text-[8px] text-slate-400 ml-1">({hotel.reviewCount})</span></div> </div>
                          </div>
-                         <p className={`text-[9px] text-slate-500 italic ${isExpanded ? '' : 'line-clamp-1'}`}>"{extra.description}"</p>
-                         {isExpanded && (
-                           <div className="mt-4 pt-4 border-t border-white/5 space-y-4 animate-in fade-in">
-                              <div className="bg-slate-900/60 p-3 rounded-lg text-[10px] italic text-slate-300 border border-white/5">
-                                <span className="text-pink-500 uppercase tracking-widest text-[8px] block mb-1 opacity-60">Cultural Insight:</span>
-                                "{extra.culturalInsight}"
-                              </div>
-                              <div className="flex gap-2">
-                                <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(extra.location)}`, '_blank'); }} className="flex-1 px-2 py-2 text-[8px] font-black uppercase bg-emerald-600/10 text-emerald-400 rounded-lg border border-emerald-500/10 hover:bg-emerald-600 hover:text-white transition-all">Show Map</button>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                {itinerary.days && itinerary.days.map((_, i) => ( 
-                                  <button key={i} onClick={(e) => { e.stopPropagation(); handleAddFromExtras(extra, i); }} className="px-2 py-2 text-[7px] font-black uppercase text-slate-400 hover:bg-white hover:text-slate-950 rounded-lg border border-white/5 transition-all">Add: Day 0{i+1}</button> 
-                                ))}
-                              </div>
-                           </div>
-                         )}
+                         <p className="text-[10px] text-slate-400 font-medium italic line-clamp-2">"{hotel.description}"</p>
+                         <button onClick={() => window.open(hotel.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name + " " + itinerary.destination)}`, '_blank')} className="w-full mt-4 py-2 bg-emerald-600 rounded-lg text-white font-black text-[9px] uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg">Verify Site</button>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 2. Vector Analysis */}
-              <div className="cockpit-panel rounded-3xl p-6 border border-white/10 shadow-2xl">
-                <h5 className="font-black text-orange-500 uppercase tracking-[0.3em] text-[10px] mb-6 flex items-center gap-2"> Vector Analysis </h5>
-                <div className="space-y-4">
-                  {itinerary.travelOptions && itinerary.travelOptions.map((opt, i) => (
-                    <div key={i} className="bg-black/40 rounded-2xl p-4 border border-white/5 hover:border-orange-500/30 transition-all">
-                       <div className="flex justify-between items-center mb-2">
-                          <div className="flex items-center space-x-3">
-                             <div className="w-8 h-8 bg-orange-500/10 rounded-lg flex items-center justify-center text-orange-500"> {renderTransportIcon(opt.mode)} </div>
-                             <div>
-                                <h6 className="text-xs font-black text-white uppercase">{opt.mode}</h6>
-                                <p className="text-[8px] text-slate-500 font-bold uppercase">{opt.operatorDetails}</p>
-                             </div>
-                          </div>
-                          <span className="text-emerald-400 font-black text-xs">{opt.estimatedCost}</span>
-                       </div>
-                       <p className="text-[10px] text-slate-400 font-medium italic mt-3">"{opt.description}"</p>
-                       <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/search?q=book+${opt.mode.toLowerCase()}+from+${itinerary.startingLocation}+to+${itinerary.destination.split(' (')[0]}`, '_blank'); }} className="w-full mt-4 py-2 bg-white/5 border border-white/10 text-white font-black text-[9px] uppercase tracking-widest hover:bg-white hover:text-slate-950 transition-all rounded-lg">Redirect to Booking</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 3. Sanctuary Stays */}
-              <div className="cockpit-panel rounded-3xl p-6 border border-white/10 shadow-2xl">
-                <div className="flex items-center justify-between mb-6">
-                  <h5 className="font-black text-emerald-500 uppercase tracking-[0.3em] text-[10px]">Sanctuary Stays</h5>
-                  <button onClick={handleRefreshHotels} className="text-emerald-500/40 hover:text-emerald-500"><svg className={`w-4 h-4 ${loadingHotels ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg></button>
-                </div>
-                <div className="space-y-4">
-                  {itinerary.hotelRecommendations && itinerary.hotelRecommendations.map((hotel, i) => (
-                    <div key={i} className="bg-black/40 rounded-2xl p-4 border border-white/5 hover:border-emerald-500/30 transition-all">
-                       <div className="flex justify-between items-start mb-2"> <h6 className="text-xs font-black text-white uppercase truncate pr-2">{hotel.name}</h6> <span className="text-[9px] text-emerald-400 font-black whitespace-nowrap">{hotel.estimatedPricePerNight}</span> </div>
-                       <div className="flex items-center space-x-4 mb-4 mt-2">
-                          <div className="flex flex-col"> <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Google Reviewed</span> <div className="flex items-center gap-0.5">{renderStars(hotel.googleRating)} <span className="text-[8px] text-slate-400 ml-1">({hotel.googleRating})</span></div> </div>
-                          <div className="flex flex-col border-l border-white/5 pl-4"> <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Web Reviewed</span> <div className="flex items-center gap-0.5">{renderStars(hotel.webRating)} <span className="text-[8px] text-slate-400 ml-1">({hotel.reviewCount})</span></div> </div>
-                       </div>
-                       <p className="text-[10px] text-slate-400 font-medium italic line-clamp-2">"{hotel.description}"</p>
-                       <button onClick={() => window.open(hotel.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name + " " + itinerary.destination)}`, '_blank')} className="w-full mt-4 py-2 bg-emerald-600 rounded-lg text-white font-black text-[9px] uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg">Verify Site</button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

@@ -157,7 +157,7 @@ const IndiaMap: React.FC<IndiaMapProps> = ({ onSelectDestination }) => {
                     onClick={() => onSelectDestination(spot.name)}
                     className="bg-white/5 hover:bg-pink-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all duration-300 border border-white/5"
                    >
-                    Select Node
+                    Add to Blueprint
                    </button>
                 </div>
               </div>
