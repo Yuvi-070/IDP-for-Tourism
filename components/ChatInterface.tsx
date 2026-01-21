@@ -1,363 +1,546 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { chatWithLocalAI, translateText, analyzeLocationImage, generateSpeech } from '../services/geminiService';
-import { ChatMessage } from '../types';
-
-interface ImageMessage extends ChatMessage {
-  imagePreview?: string;
-  isTranslating?: boolean;
-}
+import { chatWithLocalAI, translateText, analyzeLocationImage } from '../services/geminiService';
+import { supabase, getMyBookings, getMessages, sendMessage, getUserItineraries, updateBookingStatus } from '../services/supabaseClient';
+import { ChatMessage, Booking, RealtimeMessage, Itinerary } from '../types';
+import TripDetails from './TripDetails';
 
 const ChatInterface: React.FC = () => {
-  const [messages, setMessages] = useState<ImageMessage[]>([]);
+  const [activeSession, setActiveSession] = useState<string>('ai'); // 'ai' or booking_id
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [messages, setMessages] = useState<(ChatMessage | RealtimeMessage)[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isPlaying, setIsPlaying] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<{ base64: string; preview: string; mimeType: string } | null>(null);
-  const [customLanguage, setCustomLanguage] = useState<Record<string, string>>({}); // msgId -> language string
+  const [showItineraryModal, setShowItineraryModal] = useState(false);
+  const [availableItineraries, setAvailableItineraries] = useState<any[]>([]);
+  const [userRole, setUserRole] = useState<'user' | 'guide'>('user');
+  const [userId, setUserId] = useState<string>('');
   
+  // Mobile sidebar state
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  
+  // State for viewing full itinerary details
+  const [viewingItinerary, setViewingItinerary] = useState<Itinerary | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Initialize
   useEffect(() => {
-    // Initialize with welcome message. History is no longer loaded from DB.
-    setMessages([{
-      id: 'welcome',
-      sender: 'ai',
-      text: 'Namaste! I am your AI Journey Concierge. Whether you have a photo of a mysterious landmark or a complex cultural query, I am here to synthesize Bharat for you.',
-      timestamp: new Date()
-    }]);
-
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
+    initChat();
   }, []);
+
+  // Fetch all bookings (approved AND pending)
+  const initChat = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        setUserId(user.id);
+        // Determine role via profile check
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        const role = profile?.role || 'user';
+        setUserRole(role);
+
+        await fetchBookings(role);
+    }
+  };
+
+  const fetchBookings = async (role: 'user' | 'guide') => {
+      const allBookings = await getMyBookings(role);
+      // We now keep all bookings to show pending states
+      setBookings(allBookings);
+  };
+
+  // Switch Session
+  useEffect(() => {
+    if (activeSession === 'ai') {
+        // AI Intro
+        setMessages([{
+            id: 'welcome',
+            sender: 'ai',
+            text: 'Namaste! I am your AI Journey Concierge. Ask me anything about Indian heritage or travel.',
+            timestamp: new Date()
+        } as ChatMessage]);
+    } else {
+        // Check if session is valid (approved)
+        const currentBooking = bookings.find(b => b.id === activeSession);
+        if (currentBooking && currentBooking.status !== 'approved') {
+            setMessages([]); // Clear messages for pending items
+            return;
+        }
+
+        // Load Realtime History
+        loadRealtimeMessages(activeSession);
+        
+        // Subscribe
+        const channel = supabase
+            .channel('chat_room')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `booking_id=eq.${activeSession}` }, (payload) => {
+                const newMsg = payload.new as RealtimeMessage;
+                setMessages(prev => [...prev, newMsg]);
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); }
+    }
+  }, [activeSession, bookings]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
   }, [messages, isTyping]);
 
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    // Expand height to wrap text
-    e.target.style.height = 'auto';
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = (reader.result as string).split(',')[1];
-        setSelectedImage({
-          base64: base64String,
-          preview: reader.result as string,
-          mimeType: file.type
-        });
+  const loadRealtimeMessages = async (bookingId: string) => {
+      let msgs = await getMessages(bookingId);
+      
+      // Inject Disclaimer if it's a human chat
+      const disclaimer: any = {
+          id: 'system-disclaimer',
+          sender: 'system', // treated specially in render
+          content: '⚠️ SECURITY PROTOCOL: Do not enclose personal information (Bank Details, Home Address) until necessary for the active booking.',
+          created_at: new Date().toISOString(),
+          message_type: 'text'
       };
-      reader.readAsDataURL(file);
-    }
+
+      setMessages([disclaimer, ...msgs]);
   };
-
-  const handleSpeechOutput = async (id: string, text: string) => {
-    if (isPlaying === id) return;
-    setIsPlaying(id);
-
-    try {
-      const base64Audio = await generateSpeech(text);
-      if (base64Audio) {
-        if (!audioContextRef.current) {
-          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-        }
-        const ctx = audioContextRef.current;
-        const audioBytes = decode(base64Audio);
-        const audioBuffer = await decodeAudioData(audioBytes, ctx, 24000, 1);
-        
-        const source = ctx.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(ctx.destination);
-        source.onended = () => setIsPlaying(null);
-        source.start();
-      } else {
-        setIsPlaying(null);
-      }
-    } catch (error) {
-      console.error("TTS failed", error);
-      setIsPlaying(null);
-    }
-  };
-
-  function decode(base64: string) {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  }
-
-  async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
-    const dataInt16 = new Int16Array(data.buffer);
-    const frameCount = dataInt16.length / numChannels;
-    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-    for (let channel = 0; channel < numChannels; channel++) {
-      const channelData = buffer.getChannelData(channel);
-      for (let i = 0; i < frameCount; i++) {
-        channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-      }
-    }
-    return buffer;
-  }
 
   const handleSend = async () => {
     if (!input.trim() && !selectedImage) return;
+    if (isChatEnded) return;
+    
+    // Guard: Cannot chat if pending
+    const currentBooking = bookings.find(b => b.id === activeSession);
+    if (activeSession !== 'ai' && currentBooking?.status !== 'approved') {
+        alert("Wait for the request to be accepted before messaging.");
+        return;
+    }
 
-    const currentImage = selectedImage;
-    const currentInput = input;
-    const timestamp = new Date();
-
-    const userMsg: ImageMessage = {
-      id: Date.now().toString(),
-      sender: 'user',
-      text: currentInput || 'Processing visual coordinate...',
-      imagePreview: currentImage?.preview,
-      timestamp: timestamp
-    };
-
-    setMessages(prev => [...prev, userMsg]);
+    const txt = input;
     setInput('');
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setSelectedImage(null);
-    setIsTyping(true);
 
-    // Chat persistence removed to keep history ephemeral.
+    if (activeSession === 'ai') {
+        // AI Logic (Existing)
+        const userMsg: ChatMessage = { id: Date.now().toString(), sender: 'user', text: txt, timestamp: new Date() };
+        setMessages(prev => [...prev, userMsg]);
+        setIsTyping(true);
+        try {
+            let response = '';
+            if (selectedImage) {
+                response = await analyzeLocationImage(selectedImage.base64, selectedImage.mimeType);
+            } else {
+                response = await chatWithLocalAI(txt, "General Concierge");
+            }
+            const aiMsg: ChatMessage = { id: (Date.now()+1).toString(), sender: 'ai', text: response, timestamp: new Date() };
+            setMessages(prev => [...prev, aiMsg]);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsTyping(false);
+        }
+    } else {
+        // Realtime Logic
+        try {
+            await sendMessage(activeSession, txt, 'text');
+        } catch (e) {
+            alert("Failed to send message");
+        }
+    }
+  };
 
-    try {
-      let response = '';
-      if (currentImage) {
-        response = await analyzeLocationImage(currentImage.base64, currentImage.mimeType) || 'Unable to resolve heritage markers.';
-      } else {
-        response = await chatWithLocalAI(currentInput, "General India Tourism Concierge") || 'Synthesis failure in cultural processing.';
-      }
-
-      const aiMsg: ImageMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: 'ai',
-        text: response,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, aiMsg]);
+  const handleShareItinerary = async () => {
+      if (activeSession === 'ai') return alert("Only available in Human Chat");
       
-    } catch (error) {
-      console.error(error);
-      const errorMsg: ImageMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: 'ai',
-        text: "Neural processing interrupt. Requesting signal re-establishment.",
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMsg]);
-    } finally {
-      setIsTyping(false);
-    }
+      const histories = await getUserItineraries(userId);
+      setAvailableItineraries(histories);
+      setShowItineraryModal(true);
   };
 
-  const handleTranslate = async (msgId: string) => {
-    const language = customLanguage[msgId];
-    if (!language || !language.trim()) return;
+  const confirmShareItinerary = async (itineraryData: Itinerary) => {
+      try {
+          await sendMessage(activeSession, `Shared Itinerary: ${itineraryData.destination}`, 'itinerary', itineraryData);
+          setShowItineraryModal(false);
+      } catch (e) {
+          alert("Failed to share");
+      }
+  };
 
-    const msgIndex = messages.findIndex(m => m.id === msgId);
-    if (msgIndex === -1) return;
+  const handleEndChat = async () => {
+      if (activeSession === 'ai') return;
+      const confirmEnd = window.confirm("Are you sure you want to disconnect this session?");
+      if (!confirmEnd) return;
 
-    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isTranslating: true } : m));
+      try {
+          const endMsg = "🚫 The chat session has been ended by the user.";
+          await sendMessage(activeSession, endMsg, 'text');
+      } catch (e) {
+          console.error("Failed to end chat");
+      }
+  };
+
+  const handleTranslate = async (msgId: string, content: string) => {
+    const lang = prompt("Enter target language (e.g., Hindi, French):");
+    if (!lang) return;
 
     try {
-      const translated = await translateText(messages[msgIndex].text, language);
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, translatedText: translated, isTranslating: false } : m));
-    } catch (error) {
-      alert("Linguistic bridge failure.");
-      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isTranslating: false } : m));
+        const translated = await translateText(content, lang);
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, translatedText: translated } : m));
+    } catch (e) {
+        alert("Translation failed");
     }
   };
+
+  const handleAcceptRequest = async (e: React.MouseEvent, bookingId: string) => {
+      e.stopPropagation();
+      try {
+          await updateBookingStatus(bookingId, 'approved');
+          // Refresh list locally
+          setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'approved' } : b));
+          setActiveSession(bookingId);
+      } catch (error) {
+          console.error(error);
+          alert("Failed to accept.");
+      }
+  };
+
+  // Check if the last message indicates chat ended
+  const lastMessage = messages[messages.length - 1];
+  const isChatEnded = activeSession !== 'ai' && (lastMessage?.content?.includes("chat session has been ended") || lastMessage?.text?.includes("chat session has been ended"));
+
+  const activeBookings = bookings.filter(b => b.status === 'approved');
+  const pendingBookings = bookings.filter(b => b.status === 'pending');
+
+  // Determine Chat Header Name
+  const currentBooking = bookings.find(b => b.id === activeSession);
+  
+  const getPartnerName = (b: Booking) => {
+      if (userRole === 'user') {
+          return b.guide?.name || 'Guide';
+      } else {
+          // Guide viewing traveler
+          if (b.traveler?.first_name) {
+              return `${b.traveler.first_name} ${b.traveler.last_name || ''}`.trim();
+          }
+          return b.traveler?.email || 'Traveler';
+      }
+  };
+
+  const chatPartnerName = activeSession === 'ai' 
+      ? 'AI Concierge' 
+      : (currentBooking 
+          ? getPartnerName(currentBooking)
+          : 'Secure Protocol Channel');
 
   return (
-    <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-6 sm:py-12 flex flex-col h-[95vh] bg-slate-950">
-      <style>{`
-        .chat-glass {
-          background: rgba(15, 23, 42, 0.4);
-          backdrop-filter: blur(40px);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
-        }
-        .ai-bubble {
-          background: rgba(30, 41, 59, 0.6);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.4);
-        }
-        .user-bubble {
-          background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
-          box-shadow: 0 20px 50px -10px rgba(236, 72, 153, 0.3);
-        }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        @media (max-width: 640px) {
-          .chat-glass { border-radius: 2rem !important; height: 100% !important; }
-          .message-container { padding: 1rem !important; flex: 1 !important; }
-          .bubble-padding { padding: 1.25rem !important; }
-          .header-padding { padding: 1.25rem !important; }
-          .input-padding { padding: 1rem !important; }
-          .ai-bubble, .user-bubble { max-width: 95% !important; }
-        }
-      `}</style>
-      
-      <div className="chat-glass rounded-[3rem] sm:rounded-[4rem] flex flex-col overflow-hidden h-full relative">
-        {/* Header */}
-        <div className="bg-slate-900/40 header-padding p-8 sm:p-14 flex items-center justify-between text-white border-b border-white/5 relative z-10 shrink-0">
-          <div className="flex items-center space-x-4 sm:space-x-10">
-            <div className="relative">
-              <div className="w-10 h-10 sm:w-16 sm:h-16 rani-pink-bg rounded-[0.75rem] sm:rounded-[1.5rem] flex items-center justify-center font-black text-lg sm:text-2xl shadow-3xl">
-                LL
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-3 h-3 sm:w-6 sm:h-6 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-lg"></div>
-            </div>
-            <div>
-              <h3 className="font-black text-lg sm:text-3xl tracking-tighter">AI <span className="textile-gradient">Concierge</span></h3>
-              <div className="flex items-center space-x-2 mt-0.5">
-                <span className="text-[7px] sm:text-[10px] font-black uppercase tracking-[0.3em] sm:tracking-[0.5em] text-slate-500">Neural Sync Active</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3 sm:space-x-8">
-             <div className="hidden sm:flex flex-col items-end mr-4">
-                <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Latency</span>
-                <span className="text-xs font-black text-emerald-400 tracking-tight">Stable • 142ms</span>
-             </div>
-             <button className="text-slate-500 hover:text-white transition-all p-2 sm:p-4 bg-white/5 rounded-xl border border-white/10">
-                <svg className="w-4 h-4 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-             </button>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div ref={scrollRef} className="flex-grow overflow-y-auto message-container p-6 sm:p-14 md:p-20 space-y-8 sm:space-y-16 no-scrollbar relative z-10">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[90%] sm:max-w-[80%] rounded-[1.5rem] sm:rounded-[3rem] bubble-padding p-6 sm:p-12 shadow-3xl relative transition-all duration-700 ${msg.sender === 'user' ? 'user-bubble text-white' : 'ai-bubble text-slate-100'}`}>
-                
-                {msg.sender === 'ai' && (
-                  <div className="absolute -left-2 -top-2 sm:-left-6 sm:-top-6 w-8 h-8 sm:w-14 sm:h-14 rani-pink-bg rounded-lg sm:rounded-2xl flex items-center justify-center text-[7px] sm:text-[11px] font-black text-white border-2 border-slate-900 shadow-2xl">AI</div>
-                )}
-
-                {msg.imagePreview && (
-                  <div className="mb-4 sm:mb-8 rounded-[1rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl border-2 border-white/10">
-                    <img src={msg.imagePreview} alt="Uploaded marker" className="w-full h-auto max-h-[300px] sm:max-h-[500px] object-cover" />
-                  </div>
-                )}
-
-                <div className="relative">
-                  <p className="text-sm sm:text-xl md:text-2xl leading-relaxed font-bold italic tracking-tight pr-0 sm:pr-14 whitespace-pre-wrap break-words">
-                    {msg.text}
-                  </p>
-                  
-                  {msg.sender === 'ai' && (
-                    <button 
-                      onClick={() => handleSpeechOutput(msg.id, msg.text)}
-                      className={`mt-3 sm:mt-0 sm:absolute right-0 top-0 p-2 sm:p-4 rounded-xl bg-white/5 border border-white/10 transition-all ${isPlaying === msg.id ? 'text-pink-500 scale-110' : 'text-slate-500 hover:text-pink-500'}`}
-                    >
-                      <svg className={`w-4 h-4 sm:w-6 sm:h-6 ${isPlaying === msg.id ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-
-                {msg.translatedText && (
-                  <div className="mt-6 pt-6 sm:mt-10 sm:pt-10 border-t border-white/10 text-sm sm:text-xl md:text-2xl text-orange-400 font-bold italic tracking-tight relative">
-                    <span className="block font-black uppercase mb-3 sm:mb-6 text-[8px] sm:text-[11px] tracking-[0.4em] text-pink-500">Translation:</span>
-                    <p className="break-words">{msg.translatedText}</p>
-                  </div>
-                )}
-
-                <div className={`mt-6 pt-6 sm:mt-8 sm:pt-8 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${msg.sender === 'user' ? 'text-white/40' : 'text-slate-600'}`}>
-                  <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  {msg.sender === 'ai' && (
-                    <div className="flex flex-wrap items-center gap-3 sm:gap-6 w-full sm:w-auto">
-                      <div className="flex bg-black/40 rounded-full px-4 py-1.5 border border-white/5 flex-grow sm:flex-grow-0">
-                        <input 
-                          type="text" 
-                          placeholder="Translate..."
-                          value={customLanguage[msg.id] || ''}
-                          onChange={(e) => setCustomLanguage(prev => ({ ...prev, [msg.id]: e.target.value }))}
-                          onKeyDown={(e) => e.key === 'Enter' && handleTranslate(msg.id)}
-                          className="bg-transparent border-none outline-none text-[8px] sm:text-[10px] font-black uppercase text-white placeholder:text-slate-700 w-full sm:w-24"
-                        />
-                        <button onClick={() => handleTranslate(msg.id)} className="ml-2 text-pink-500 hover:scale-110 transition-all font-black">
-                          {msg.isTranslating ? '...' : '→'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="ai-bubble rounded-[1.5rem] px-8 py-5 border border-white/5 flex items-center space-x-4">
-                <div className="flex space-x-1.5">
-                  <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce delay-100"></div>
-                  <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce delay-200"></div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Input */}
-        <div className="input-padding p-6 sm:p-12 bg-slate-900/60 border-t border-white/10 relative z-10 backdrop-blur-3xl shrink-0">
-          <div className="relative flex items-end space-x-3 sm:space-x-8 max-w-5xl mx-auto">
-            <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className={`w-12 h-12 sm:w-20 sm:h-20 rounded-xl sm:rounded-[2rem] border-2 transition-all flex items-center justify-center flex-shrink-0 mb-0.5 ${selectedImage ? 'bg-pink-600 border-pink-500 text-white shadow-3xl' : 'bg-white/5 border-white/10 text-slate-500 hover:border-white/30 hover:text-white'}`}
-            >
-              <svg className="w-6 h-6 sm:w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            </button>
-            
-            <div className="relative flex-grow flex items-end">
-              <textarea 
-                ref={textareaRef}
-                rows={1}
-                value={input}
-                onChange={handleTextareaChange}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder={selectedImage ? "Synthesize visual data..." : "Ask your cultural guide..."}
-                className="w-full pl-6 pr-24 sm:pl-10 sm:pr-40 py-4 sm:py-7 bg-black/40 border-2 border-white/10 rounded-[1.5rem] sm:rounded-[3rem] focus:border-pink-500 transition-all text-sm sm:text-xl font-bold text-white placeholder:text-slate-800 outline-none resize-none overflow-y-auto no-scrollbar min-h-[56px] sm:min-h-[72px]"
-              />
-              <button 
-                onClick={handleSend}
-                disabled={!input.trim() && !selectedImage}
-                className="absolute right-2 sm:right-4 bottom-2 sm:bottom-4 bg-white text-slate-950 hover:bg-pink-500 hover:text-white transition-all px-6 sm:px-12 py-2 sm:py-4 rounded-xl sm:rounded-[2rem] font-black uppercase text-[8px] sm:text-[11px] tracking-widest shadow-2xl active:scale-95 disabled:opacity-0"
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        </div>
+    <div className="max-w-screen-2xl mx-auto px-4 py-8 h-[90vh] flex gap-6 relative overflow-hidden">
+      {/* Ambient Background Effects */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-pink-500/10 rounded-full blur-[120px] translate-x-1/2 -translate-y-1/2"></div>
+          <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-[120px] -translate-x-1/2 translate-y-1/2"></div>
       </div>
+
+      <style>{`
+         .chat-glass {
+             background: rgba(15, 23, 42, 0.75);
+             backdrop-filter: blur(24px);
+             border: 1px solid rgba(255, 255, 255, 0.08);
+             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+         }
+         .active-contact {
+             background: linear-gradient(90deg, rgba(236, 72, 153, 0.15) 0%, transparent 100%);
+             border-left: 3px solid #ec4899;
+         }
+         .message-bubble-user {
+             background: linear-gradient(135deg, #db2777 0%, #f97316 100%);
+             box-shadow: 0 4px 15px rgba(219, 39, 119, 0.3);
+         }
+         .message-bubble-ai {
+             background: rgba(255, 255, 255, 0.05);
+             border: 1px solid rgba(255, 255, 255, 0.1);
+             backdrop-filter: blur(10px);
+         }
+         .chat-scroll::-webkit-scrollbar { width: 4px; }
+         .chat-scroll::-webkit-scrollbar-track { background: transparent; }
+         .chat-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+         .chat-scroll::-webkit-scrollbar-thumb:hover { background: rgba(236,72,153,0.5); }
+      `}</style>
+
+      {/* Sidebar - Responsive */}
+      <div className={`
+        fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl p-6 overflow-y-auto transition-transform duration-300 ease-in-out chat-scroll
+        md:static md:w-1/4 md:chat-glass md:rounded-[2.5rem] md:block md:bg-transparent md:backdrop-blur-none
+        ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+         <div className="flex justify-between items-center md:hidden mb-8">
+            <h3 className="text-white font-black uppercase tracking-widest text-xs">Neural Connections</h3>
+            <button onClick={() => setShowMobileSidebar(false)} className="text-white bg-white/10 p-2 rounded-full">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+         </div>
+
+         <div className="hidden md:block">
+            <h3 className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-orange-500 font-black uppercase tracking-widest text-xs mb-8">Neural Connections</h3>
+         </div>
+         
+         <div className="space-y-4">
+            <div 
+                onClick={() => { setActiveSession('ai'); setShowMobileSidebar(false); }}
+                className={`p-4 rounded-2xl cursor-pointer hover:bg-white/5 transition-all flex items-center gap-4 group ${activeSession === 'ai' ? 'active-contact' : 'border border-transparent'}`}
+            >
+                <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-br from-pink-500 to-orange-500 group-hover:scale-105 transition-transform">
+                    <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-white font-black text-xs">AI</div>
+                </div>
+                <div>
+                    <div className="text-white font-bold text-sm">AI Concierge</div>
+                    <div className="text-emerald-500 text-[10px] uppercase font-bold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Online
+                    </div>
+                </div>
+            </div>
+
+            <div className="h-px bg-white/5 my-6 mx-2"></div>
+            
+            {/* ACTIVE LIST */}
+            {activeBookings.length > 0 && <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 px-2">Active Protocols</div>}
+            
+            {activeBookings.map(b => {
+                const partnerName = getPartnerName(b);
+                return (
+                    <div 
+                        key={b.id}
+                        onClick={() => { setActiveSession(b.id); setShowMobileSidebar(false); }}
+                        className={`p-4 rounded-2xl cursor-pointer hover:bg-white/5 transition-all flex items-center gap-4 ${activeSession === b.id ? 'active-contact' : 'border border-transparent'}`}
+                    >
+                        <div className="relative">
+                            <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-xs border border-white/10">
+                                {partnerName?.[0] || 'U'}
+                            </div>
+                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
+                        </div>
+                        <div className="overflow-hidden">
+                            <div className="text-white font-bold text-sm truncate">{partnerName}</div>
+                            <div className="text-slate-400 text-[10px] uppercase font-medium">Connected</div>
+                        </div>
+                    </div>
+                )
+            })}
+
+            {/* PENDING LIST */}
+            {pendingBookings.length > 0 && (
+                <>
+                    <div className="h-px bg-white/5 my-6 mx-2"></div>
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 px-2">Pending Requests</div>
+                    {pendingBookings.map(b => {
+                        const partnerName = getPartnerName(b);
+                        return (
+                            <div 
+                                key={b.id}
+                                className="p-4 rounded-2xl border border-white/5 bg-white/[0.02] flex flex-col gap-3"
+                            >
+                                <div className="flex items-center gap-3 opacity-70">
+                                    <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 font-bold text-xs border border-white/10">
+                                        {partnerName?.[0] || '?'}
+                                    </div>
+                                    <div className="overflow-hidden">
+                                        <div className="text-white font-bold text-xs truncate">{partnerName}</div>
+                                        <div className="text-amber-500 text-[9px] uppercase">Awaiting Approval</div>
+                                    </div>
+                                </div>
+                                {userRole === 'guide' && (
+                                    <button 
+                                        onClick={(e) => handleAcceptRequest(e, b.id)}
+                                        className="w-full py-2 bg-emerald-600/20 text-emerald-500 border border-emerald-500/30 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all"
+                                    >
+                                        Accept Protocol
+                                    </button>
+                                )}
+                            </div>
+                        )
+                    })}
+                </>
+            )}
+
+            {bookings.length === 0 && <div className="text-slate-600 text-xs italic text-center py-4">No active protocols</div>}
+         </div>
+      </div>
+
+      {/* Chat Area */}
+      <div className="flex-1 chat-glass rounded-[2.5rem] flex flex-col overflow-hidden relative z-10">
+          {/* Header */}
+          <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02] backdrop-blur-md gap-4">
+             <div className="flex items-center gap-4 flex-1 overflow-hidden">
+                 <button onClick={() => setShowMobileSidebar(true)} className="md:hidden text-slate-400 hover:text-white transition-colors flex-shrink-0">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                 </button>
+                 <div className="flex flex-col overflow-hidden">
+                    <div className="text-white font-black uppercase tracking-widest text-sm truncate">
+                        {chatPartnerName}
+                    </div>
+                    {activeSession === 'ai' && <div className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 mt-1"><span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>Live Neural Link</div>}
+                 </div>
+             </div>
+             
+             {activeSession !== 'ai' && bookings.find(b=>b.id === activeSession)?.status === 'approved' && (
+                 <div className="flex items-center gap-2">
+                     <button 
+                        onClick={handleShareItinerary} 
+                        className="bg-pink-600/10 text-pink-500 border border-pink-500/20 hover:bg-pink-600 hover:text-white p-2 md:px-5 md:py-2.5 rounded-xl transition-all shadow-lg flex items-center justify-center"
+                        title="Share Itinerary"
+                     >
+                         <svg className="w-5 h-5 md:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                         <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest">Share Itinerary</span>
+                     </button>
+                     <button 
+                        onClick={handleEndChat}
+                        disabled={isChatEnded}
+                        className="bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-600 hover:text-white p-2 md:px-4 md:py-2.5 rounded-xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="End Chat"
+                     >
+                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                     </button>
+                 </div>
+             )}
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-8 chat-scroll" ref={scrollRef}>
+             {activeSession !== 'ai' && bookings.find(b=>b.id === activeSession)?.status === 'pending' ? (
+                <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                    <div className="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mb-6 animate-pulse border border-amber-500/20">
+                        <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <h3 className="text-2xl font-black text-white uppercase tracking-widest">Connection Pending</h3>
+                    <p className="text-slate-400 text-sm mt-3 max-w-xs font-medium">
+                        {userRole === 'user' 
+                         ? "Waiting for the guide to accept your secure protocol request." 
+                         : "Please accept the request in the sidebar to begin transmission."}
+                    </p>
+                </div>
+             ) : (
+                 messages.map((m: any, idx) => {
+                     const isMe = m.sender === 'user' || m.sender_id === userId;
+                     const isSystem = m.sender === 'system' || m.id === 'system-disclaimer';
+                     
+                     if (isSystem) {
+                         // Styled differently for System Messages / Disclaimers
+                         return (
+                             <div key={m.id || idx} className="flex justify-center animate-in fade-in slide-in-from-top-4 duration-500">
+                                 <div className={`max-w-[90%] rounded-xl p-3 text-center border ${m.content?.includes("SECURITY") ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
+                                     <p className="text-[10px] font-black uppercase tracking-wide">{m.content || m.text}</p>
+                                 </div>
+                             </div>
+                         );
+                     }
+
+                     return (
+                         <div key={m.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                             <div className={`max-w-[85%] sm:max-w-[70%] rounded-[1.5rem] p-5 shadow-2xl relative ${isMe ? 'message-bubble-user text-white rounded-br-none' : 'message-bubble-ai text-slate-200 rounded-bl-none'}`}>
+                                 {m.message_type === 'itinerary' ? (
+                                     <div 
+                                        className="bg-slate-900/80 p-5 rounded-2xl border border-white/10 hover:border-pink-500/50 transition-all cursor-pointer group relative overflow-hidden shadow-2xl"
+                                        onClick={() => m.metadata && setViewingItinerary(m.metadata)}
+                                     >
+                                         <div className="absolute top-0 right-0 w-24 h-24 bg-pink-500/20 blur-xl rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+                                         <div className="flex justify-between items-start mb-3 relative z-10">
+                                             <div className="text-[10px] font-black uppercase text-pink-500 tracking-widest">Itinerary Shared</div>
+                                             <div className="bg-white/10 text-white p-2 rounded-full group-hover:bg-pink-600 transition-colors">
+                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                             </div>
+                                         </div>
+                                         <div className="font-black text-xl mb-1 text-white relative z-10">{m.metadata?.destination}</div>
+                                         <div className="text-xs text-slate-400 font-bold relative z-10">{m.metadata?.duration} Days • {m.metadata?.theme}</div>
+                                     </div>
+                                 ) : (
+                                     <p className="text-sm font-medium leading-relaxed tracking-wide">{m.content || m.text}</p>
+                                 )}
+                                 
+                                 {m.translatedText && (
+                                     <div className="mt-3 pt-3 border-t border-white/20 text-xs italic text-orange-200 font-medium">
+                                         {m.translatedText}
+                                     </div>
+                                 )}
+
+                                 <div className={`mt-2 flex items-center gap-4 ${isMe ? 'justify-end text-pink-200/70' : 'justify-between text-slate-500'}`}>
+                                     <span className="text-[9px] uppercase font-bold">{new Date(m.created_at || m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                                     {!isMe && m.message_type !== 'itinerary' && (
+                                         <button onClick={() => handleTranslate(m.id, m.content || m.text)} className="text-[9px] uppercase font-black hover:text-white transition-colors">Translate</button>
+                                     )}
+                                 </div>
+                             </div>
+                         </div>
+                     )
+                 })
+             )}
+             {isTyping && (
+                 <div className="flex justify-start animate-in fade-in">
+                     <div className="bg-white/5 border border-white/10 rounded-2xl rounded-bl-none p-4 flex items-center gap-2">
+                         <span className="w-1.5 h-1.5 bg-pink-500 rounded-full animate-bounce"></span>
+                         <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce delay-75"></span>
+                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce delay-150"></span>
+                     </div>
+                 </div>
+             )}
+          </div>
+
+          {/* Input Area */}
+          <div className="p-6 bg-slate-900/40 border-t border-white/5 backdrop-blur-md">
+              <div className="flex gap-4 items-center">
+                 <input 
+                    type="text" 
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                    disabled={isChatEnded || (activeSession !== 'ai' && bookings.find(b=>b.id === activeSession)?.status !== 'approved')}
+                    placeholder={
+                        isChatEnded ? "Session Disconnected." :
+                        activeSession !== 'ai' && bookings.find(b=>b.id === activeSession)?.status !== 'approved' ? "Waiting for acceptance..." : "Type your message..."
+                    }
+                    className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-slate-500 focus:border-pink-500/50 focus:bg-black/60 focus:ring-4 focus:ring-pink-500/10 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shadow-inner"
+                 />
+                 <button 
+                    onClick={handleSend} 
+                    disabled={isChatEnded || (activeSession !== 'ai' && bookings.find(b=>b.id === activeSession)?.status !== 'approved')}
+                    className="bg-gradient-to-r from-pink-600 to-orange-500 hover:from-pink-500 hover:to-orange-400 text-white p-4 rounded-2xl shadow-lg hover:shadow-pink-500/25 transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed group"
+                 >
+                    <svg className="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                 </button>
+              </div>
+          </div>
+      </div>
+
+      {/* Itinerary Modal */}
+      {showItineraryModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setShowItineraryModal(false)}></div>
+              <div className="relative bg-slate-900 border border-white/10 p-8 rounded-[2.5rem] max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in duration-300">
+                  <h3 className="text-white font-black text-xl mb-6 uppercase tracking-tight">Share Blueprint</h3>
+                  <div className="space-y-3">
+                      {availableItineraries.map((it: any) => (
+                          <div key={it.id} onClick={() => confirmShareItinerary(it.data)} className="p-5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl cursor-pointer transition-all flex justify-between items-center group">
+                              <div>
+                                  <div className="text-white font-bold mb-1">{it.data.destination}</div>
+                                  <div className="text-slate-500 text-xs font-medium">{it.data.duration} Days • {new Date(it.created_at).toLocaleDateString()}</div>
+                              </div>
+                              <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-pink-600 group-hover:text-white transition-all">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+                  <button onClick={() => setShowItineraryModal(false)} className="mt-8 w-full py-4 bg-slate-950 border border-white/10 text-slate-400 hover:text-white hover:border-white/20 rounded-2xl font-black uppercase text-xs tracking-widest transition-all">Cancel</button>
+              </div>
+          </div>
+      )}
+
+      {/* Full View Itinerary Modal */}
+      {viewingItinerary && (
+        <div className="fixed inset-0 z-[200] bg-slate-950 overflow-y-auto animate-in slide-in-from-bottom-10 fade-in duration-300">
+            <TripDetails 
+              itinerary={viewingItinerary} 
+              onBack={() => setViewingItinerary(null)} 
+              onBookGuide={() => setViewingItinerary(null)} 
+              viewOnly={true}
+            />
+        </div>
+      )}
     </div>
   );
 };

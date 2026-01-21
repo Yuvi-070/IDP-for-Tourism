@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { INDIAN_DESTINATIONS, THEMES } from '../constants';
 import { generateTravelItinerary, generateItineraryFromPrompt, getMoreSuggestions, refreshHotelRecommendations, getSpecificSuggestions } from '../services/geminiService';
@@ -10,9 +9,10 @@ interface PlannerProps {
   initialItinerary?: Itinerary | null;
   dbId?: string; // ID of the itinerary in the database for updates
   onFinalize: (itinerary: Itinerary) => void;
+  onProfileMissing?: () => void;
 }
 
-const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary, dbId, onFinalize }) => {
+const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary, dbId, onFinalize, onProfileMissing }) => {
   const [mode, setMode] = useState<'form' | 'prompt'>('form');
   const [destinationInput, setDestinationInput] = useState('');
   const [showDestSuggestions, setShowDestSuggestions] = useState(false);
@@ -167,6 +167,20 @@ const Planner: React.FC<PlannerProps> = ({ initialDestination, initialItinerary,
   };
 
   const handleGenerate = async () => {
+    // 1. Profile Check
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        const { data: profile } = await supabase.from('profiles').select('first_name').eq('id', user.id).single();
+        if (!profile?.first_name) {
+            const proceed = window.confirm("Identity Matrix Incomplete: First Name required to synthesize itinerary. Go to Profile?");
+            if (proceed && onProfileMissing) {
+                onProfileMissing();
+            }
+            return;
+        }
+    }
+
+    // 2. Input Validation
     if (mode === 'form') {
       if (!startingLocation.trim()) {
         alert("Origin Axis is required.");

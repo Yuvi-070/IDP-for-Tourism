@@ -6,9 +6,10 @@ interface TripDetailsProps {
   itinerary: Itinerary;
   onBack: () => void;
   onBookGuide: () => void;
+  viewOnly?: boolean;
 }
 
-const TripDetails: React.FC<TripDetailsProps> = ({ itinerary, onBack, onBookGuide }) => {
+const TripDetails: React.FC<TripDetailsProps> = ({ itinerary, onBack, onBookGuide, viewOnly }) => {
   const [expandedTravelIdx, setExpandedTravelIdx] = useState<number | null>(null);
   const [expandedHotelIdx, setExpandedHotelIdx] = useState<number | null>(null);
 
@@ -169,14 +170,16 @@ const TripDetails: React.FC<TripDetailsProps> = ({ itinerary, onBack, onBookGuid
               </div>
             </div>
 
-            <div className="pt-20 flex flex-col items-center text-center no-print">
-              <h5 className="text-3xl sm:text-5xl font-black text-white mb-4 uppercase tracking-tighter">Manifest the Odyssey</h5>
-              <p className="text-slate-500 mb-10 font-bold text-lg italic max-w-2xl">Download your heritage matrix and sync with verified master storytellers on the ground.</p>
-              <div className="flex flex-col sm:flex-row gap-6 w-full sm:w-auto">
-                <button onClick={onBookGuide} className="bg-pink-600 text-white px-12 py-5 rounded-full font-black text-sm sm:text-base shadow-[0_20px_50px_rgba(236,72,153,0.3)] hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.3em]">Secure Master Guide</button>
-                <button onClick={handlePrint} className="bg-white/5 text-white border border-white/10 px-12 py-5 rounded-full font-black text-sm sm:text-base hover:bg-white/10 transition-all active:scale-95 uppercase tracking-[0.3em]">Export Odyssey Blueprint</button>
-              </div>
-            </div>
+            {!viewOnly && (
+                <div className="pt-20 flex flex-col items-center text-center no-print">
+                    <h5 className="text-3xl sm:text-5xl font-black text-white mb-4 uppercase tracking-tighter">Manifest the Odyssey</h5>
+                    <p className="text-slate-500 mb-10 font-bold text-lg italic max-w-2xl">Download your heritage matrix and sync with verified master storytellers on the ground.</p>
+                    <div className="flex flex-col sm:flex-row gap-6 w-full sm:w-auto">
+                        <button onClick={onBookGuide} className="bg-pink-600 text-white px-12 py-5 rounded-full font-black text-sm sm:text-base shadow-[0_20px_50px_rgba(236,72,153,0.3)] hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.3em]">Secure Master Guide</button>
+                        <button onClick={handlePrint} className="bg-white/5 text-white border border-white/10 px-12 py-5 rounded-full font-black text-sm sm:text-base hover:bg-white/10 transition-all active:scale-95 uppercase tracking-[0.3em]">Export Odyssey Blueprint</button>
+                    </div>
+                </div>
+            )}
           </div>
         </div>
       </div>

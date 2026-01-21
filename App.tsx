@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Hero from './components/Hero';
@@ -6,6 +5,8 @@ import Planner from './components/Planner';
 import GuideMarketplace from './components/GuideMarketplace';
 import ChatInterface from './components/ChatInterface';
 import VerificationForm from './components/VerificationForm';
+import GuideProfile from './components/GuideProfile';
+import UserProfile from './components/UserProfile';
 import IndiaMap from './components/IndiaMap';
 import TripDetails from './components/TripDetails';
 import AuthPage from './components/AuthPage';
@@ -25,6 +26,7 @@ const App: React.FC = () => {
   const [isGuest, setIsGuest] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
+  const [userRole, setUserRole] = useState<'user' | 'guide'>('user');
 
   useEffect(() => {
     const initAuth = async () => {
@@ -32,6 +34,9 @@ const App: React.FC = () => {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
         setSession(session);
+        if (session?.user) {
+          await checkUserProfile(session.user.id, session.user.email);
+        }
       } catch (e) {
         console.warn("Auth initialization failed (likely network or config):", e);
       } finally {
@@ -43,25 +48,72 @@ const App: React.FC = () => {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       if (session) {
         setShowAuth(false);
-        setIsGuest(false); // Clear guest mode on login
+        setIsGuest(false);
+        await checkUserProfile(session.user.id, session.user.email);
       }
       if (event === 'SIGNED_OUT') {
         setIsGuest(false);
         setShowAuth(false);
         setActiveTab('home');
+        setUserRole('user');
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  const checkUserProfile = async (userId: string, email?: string) => {
+    try {
+      // 1. Fetch Profile Role
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      
+      // Auto-create profile if missing (fixes foreign key errors)
+      if ((error && error.code === 'PGRST116') || !profile) {
+          console.log("Profile missing, creating new user profile...");
+          if (email) {
+              const { error: insertError } = await supabase.from('profiles').insert([
+                  { id: userId, email: email, role: 'user' }
+              ]);
+              if (!insertError) {
+                  setUserRole('user');
+                  return;
+              }
+          }
+      }
+
+      if (profile) {
+        setUserRole(profile.role);
+        
+        // 2. If Guide, check if details exist
+        if (profile.role === 'guide') {
+           const { data: guideData } = await supabase
+             .from('guides')
+             .select('id')
+             .eq('id', userId)
+             .single();
+           
+           if (!guideData) {
+             // Force verification if no guide data found
+             setActiveTab('verification');
+           }
+        }
+      }
+    } catch (e) {
+      console.error("Profile check failed", e);
+    }
+  };
+
   const handleMapSelect = (dest: string) => {
     setPreselectedDest(dest);
-    setEditingItinerary(null); // Clear editing if map selection
+    setEditingItinerary(null); 
     setEditingDbId(undefined);
     setActiveTab('planner');
   };
@@ -87,12 +139,11 @@ const App: React.FC = () => {
     try {
       const mergedPlan = await mergeItineraries(itineraries);
       if (mergedPlan) {
-        // Save the new merged plan to DB
         if (session?.user) {
            await saveItineraryToDB(session.user.id, mergedPlan);
         }
         setEditingItinerary(mergedPlan);
-        setEditingDbId(undefined); // New plan, so no existing ID to update
+        setEditingDbId(undefined); 
         setActiveTab('planner');
       }
     } catch (error) {
@@ -155,7 +206,7 @@ const App: React.FC = () => {
           </div>
         );
       case 'planner':
-        return <Planner initialDestination={preselectedDest} initialItinerary={editingItinerary} dbId={editingDbId} onFinalize={handleFinalize} />;
+        return <Planner initialDestination={preselectedDest} initialItinerary={editingItinerary} dbId={editingDbId} onFinalize={handleFinalize} onProfileMissing={() => setActiveTab('user-profile')} />;
       case 'details':
         return finalItinerary ? (
           <TripDetails 
@@ -164,7 +215,7 @@ const App: React.FC = () => {
             onBookGuide={() => setActiveTab('guides')} 
           />
         ) : (
-          <Planner onFinalize={handleFinalize} />
+          <Planner onFinalize={handleFinalize} onProfileMissing={() => setActiveTab('user-profile')} />
         );
       case 'history':
         return <History onSelectItinerary={handleHistorySelect} onEditItinerary={handleEditItinerary} onMergeItineraries={handleMergeItineraries} />;
@@ -173,7 +224,11 @@ const App: React.FC = () => {
       case 'chat':
         return <ChatInterface />;
       case 'verification':
-        return <VerificationForm />;
+        return <VerificationForm onComplete={() => setActiveTab('guides')} />;
+      case 'guide-profile':
+        return <GuideProfile />;
+      case 'user-profile':
+        return <UserProfile />;
       default:
         return <Hero onGetStarted={() => setActiveTab('planner')} />;
     }
@@ -200,8 +255,6 @@ const App: React.FC = () => {
     return <AuthPage onGuestLogin={() => { setIsGuest(true); setShowAuth(false); }} />;
   }
   
-  // Initial check: if not logged in and not guest, show auth immediately on first load
-  // Resetting activeTab to 'home' on logout ensures this condition catches the logout event
   if (!session && !isGuest && activeTab === 'home' && !showAuth) {
       return <AuthPage onGuestLogin={() => setIsGuest(true)} />;
   }
@@ -212,6 +265,7 @@ const App: React.FC = () => {
       setActiveTab={setActiveTab} 
       session={session}
       onLoginClick={() => setShowAuth(true)}
+      userRole={userRole}
     >
       {showAuth && !session ? (
         <div className="fixed inset-0 z-[200] bg-slate-950">

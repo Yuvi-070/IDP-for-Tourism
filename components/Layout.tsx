@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { supabase, signInWithGoogle } from '../services/supabaseClient';
 
@@ -8,17 +7,28 @@ interface LayoutProps {
   setActiveTab: (tab: string) => void;
   session: any;
   onLoginClick: () => void;
+  userRole?: 'user' | 'guide';
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, session, onLoginClick }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, session, onLoginClick, userRole = 'user' }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navItems = [
+  // Define base nav items
+  let navItems = [
     { id: 'planner', label: 'AI Planner' },
-    { id: 'history', label: 'History' },
     { id: 'guides', label: 'Local Guides' },
     { id: 'chat', label: 'Live Chat' },
   ];
+
+  // Conditional Logic based on Role
+  if (userRole === 'guide') {
+    // Guides get Profile, NO History
+    navItems.push({ id: 'guide-profile', label: 'My Node' });
+  } else {
+    // Travelers get History and User Profile
+    navItems.splice(1, 0, { id: 'history', label: 'History' });
+    navItems.push({ id: 'user-profile', label: 'My Profile' });
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -85,7 +95,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, sess
             {session ? (
               <div className="flex items-center gap-3 pl-1 pr-1 py-1 sm:pl-4 sm:pr-2 sm:py-1.5 bg-transparent sm:bg-white/5 rounded-full sm:border border-white/10 transition-all hover:border-white/20">
                 <div className="hidden lg:flex flex-col items-end mr-2">
-                   <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none">Connected</span>
+                   <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none">
+                     {userRole === 'guide' ? 'Expert Node' : 'Connected'}
+                   </span>
                    <span className="text-[10px] text-white font-bold max-w-[100px] truncate leading-tight">{getUserName()}</span>
                 </div>
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-inner ring-2 ring-slate-950">
@@ -170,21 +182,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, sess
               <p className="text-slate-400 text-sm leading-relaxed font-medium max-w-sm">
                 The first Intelligent Digital Platform (IDP) for Indian tourism. We synthesize enterprise-grade AI with the lived heritage of 12,000+ verified local storytellers.
               </p>
-              
-              {/* Newsletter Micro-form */}
-              <div className="max-w-sm">
-                 <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-white mb-3">Join the Neural Network</h5>
-                 <div className="flex gap-2">
-                   <input 
-                     type="email" 
-                     placeholder="Enter email coordinates..." 
-                     className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-pink-500/50 flex-grow font-bold placeholder:text-slate-600 transition-all focus:bg-white/10" 
-                   />
-                   <button className="bg-white text-slate-950 px-5 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all shadow-lg active:scale-95">
-                     Sync
-                   </button>
-                 </div>
-              </div>
             </div>
 
             {/* Spacer */}
@@ -196,8 +193,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, sess
               <ul className="space-y-4">
                 <li><button onClick={() => setActiveTab('planner')} className="text-slate-400 hover:text-white text-xs font-bold transition-colors uppercase tracking-wide">AI Blueprint</button></li>
                 <li><button onClick={() => setActiveTab('guides')} className="text-slate-400 hover:text-white text-xs font-bold transition-colors uppercase tracking-wide">Local Vault</button></li>
-                <li><button onClick={() => setActiveTab('history')} className="text-slate-400 hover:text-white text-xs font-bold transition-colors uppercase tracking-wide">User History</button></li>
-                <li><button onClick={() => setActiveTab('verification')} className="text-slate-400 hover:text-white text-xs font-bold transition-colors uppercase tracking-wide">Guide Access</button></li>
+                {userRole === 'user' && <li><button onClick={() => setActiveTab('history')} className="text-slate-400 hover:text-white text-xs font-bold transition-colors uppercase tracking-wide">User History</button></li>}
+                {userRole === 'guide' && <li><button onClick={() => setActiveTab('guide-profile')} className="text-slate-400 hover:text-white text-xs font-bold transition-colors uppercase tracking-wide">My Node</button></li>}
               </ul>
             </div>
 
@@ -225,12 +222,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, sess
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.5 6.5h.01"/><rect x="2" y="2" width="20" height="20" rx="5" ry="5" strokeWidth="2"/></svg>
                   </div>
                    <span className="text-xs font-bold uppercase tracking-wide">Instagram</span>
-                </button>
-                <button className="flex items-center gap-3 text-slate-400 hover:text-white transition-colors group">
-                  <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 group-hover:scale-110 transition-all">
-                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wide">LinkedIn</span>
                 </button>
               </div>
             </div>

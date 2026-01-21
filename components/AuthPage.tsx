@@ -85,19 +85,23 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGuestLogin }) => {
 
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
+        // 1. Sign up the user with metadata
+        // This passes the role to the database trigger, which handles profile creation securely.
+        const { data, error: authError } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              role: role // Pass 'user' or 'guide'
+            }
+          }
         });
-        if (error) throw error;
+        
+        if (authError) throw authError;
         
         if (data.user) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert([{ id: data.user.id, role: role, email: email }]);
-          
-          if (profileError) console.error("Profile creation failed", profileError);
           alert("Registration successful! Please check your email for verification.");
+          setShowAuthModal(false);
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -116,6 +120,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGuestLogin }) => {
 
   const handleGoogleLogin = async () => {
     try {
+      // Google Login defaults to 'user' role via Database Trigger logic:
+      // coalesce(new.raw_user_meta_data->>'role', 'user')
       await signInWithGoogle();
     } catch (error: any) {
       console.error("Google Auth Error:", error);

@@ -57,6 +57,7 @@ export interface Guide {
   imageUrl: string;
   bio: string;
   pricePerDay: number;
+  verification_document_url?: string;
 }
 
 export interface ChatMessage {
@@ -65,4 +66,25 @@ export interface ChatMessage {
   text: string;
   timestamp: Date;
   translatedText?: string;
+}
+
+export interface Booking {
+  id: string;
+  created_at: string;
+  user_id: string;
+  guide_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  guide?: Guide; // For traveler view
+  traveler?: any; // For guide view (profile data)
+}
+
+export interface RealtimeMessage {
+  id: string;
+  booking_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  message_type: 'text' | 'itinerary';
+  metadata?: Itinerary;
+  translatedText?: string; // Client-side prop
 }
