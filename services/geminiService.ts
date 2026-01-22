@@ -6,17 +6,30 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
  */
 
 const getAI = () => {
-  // Fetch API key from environment variables. 
-  // Checks standard process.env and Vite-specific import.meta.env patterns.
-  // Priority: Standard Process Env -> Vite Prefix -> User Custom Name
-  const apiKey = 
-    process.env.API_KEY || 
-    process.env.VITE_API_KEY || 
-    process.env.GEMINI_API_KEY || 
-    process.env.VITE_GEMINI_API_KEY;
+  let apiKey = '';
+
+  // 1. Try Vite standard (import.meta.env)
+  try {
+    // @ts-ignore - Ignore TS errors for import.meta if config is strict
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      // @ts-ignore
+      apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_KEY;
+    }
+  } catch (e) {
+    // Ignore error if import.meta is not supported
+  }
+
+  // 2. Fallback to process.env (Legacy/Other bundlers)
+  if (!apiKey && typeof process !== 'undefined' && process.env) {
+    apiKey = process.env.VITE_GEMINI_API_KEY || 
+             process.env.GEMINI_API_KEY || 
+             process.env.API_KEY;
+  }
 
   if (!apiKey) {
-    console.error("Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env.local file.");
+    console.error("CRITICAL: Gemini API Key is missing.");
+    console.error("Please create a .env.local file in your root directory with:");
+    console.error("VITE_GEMINI_API_KEY=your_key_here");
     throw new Error("Missing Google GenAI API Key");
   }
   
