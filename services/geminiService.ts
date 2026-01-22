@@ -6,17 +6,7 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
  */
 
 const getAI = () => {
-  let apiKey = "AIzaSyC3zlAeKDAXL78g9R5VFZq0Zu3zsIcQg1A";
-  try {
-    // Attempt to use environment variable if available
-    if (typeof process !== 'undefined' && process.env.API_KEY) {
-      apiKey = process.env.API_KEY;
-    }
-  } catch (e) {
-    // Fallback to hardcoded key if process.env access fails
-    console.warn("Environment variable access failed, using fallback key.");
-  }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 // Relaxed Schema: Made mapUrl and operatorDetails optional to prevent generation failures
