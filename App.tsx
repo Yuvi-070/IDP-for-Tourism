@@ -235,13 +235,36 @@ const App: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Initializing System...</div>;
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden">
+        {/* Ambient Background */}
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-pink-500/10 blur-[120px] rounded-full pointer-events-none"></div>
+        
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-16 h-16 mb-8 relative">
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-pink-600 to-orange-500 animate-spin blur-md opacity-50"></div>
+            <div className="absolute inset-0 rounded-xl bg-slate-900 flex items-center justify-center border border-white/10">
+               <span className="text-2xl font-black text-white">L</span>
+            </div>
+          </div>
+          <h2 className="text-xl font-black text-white uppercase tracking-[0.3em] animate-pulse">Initializing System</h2>
+          <div className="mt-4 flex gap-1">
+            <div className="w-1.5 h-1.5 bg-pink-500 rounded-full animate-bounce delay-0"></div>
+            <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-bounce delay-150"></div>
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce delay-300"></div>
+          </div>
+          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-4">Establishing Neural Handshake...</p>
+        </div>
+      </div>
+    );
   }
 
   if (isMerging) {
     return (
-       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-          <div className="text-center">
+       <div className="min-h-screen bg-slate-950 flex items-center justify-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
+          <div className="text-center relative z-10">
              <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
              <h2 className="text-2xl font-black text-white uppercase tracking-widest">Merging Neural Pathways...</h2>
              <p className="text-slate-500 mt-2 font-bold italic">Synthesizing combined itinerary.</p>

@@ -67,7 +67,7 @@ const UserProfile: React.FC = () => {
         last_name: formData.last_name,
         phone: formData.phone,
         date_of_birth: formData.date_of_birth || null,
-        updated_at: new Date(),
+        updated_at: new Date().toISOString(),
       };
 
       const { error } = await supabase.from('profiles').upsert(updates);
@@ -82,7 +82,15 @@ const UserProfile: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Accessing Bio-Data...</div>;
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <span className="text-white font-black uppercase tracking-[0.2em] text-xs">Accessing Bio-Data...</span>
+        </div>
+      </div>
+    );
   }
 
   return (
