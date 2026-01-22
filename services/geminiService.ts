@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Itinerary, Activity, HotelRecommendation } from "../types";
 
@@ -7,16 +6,20 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
  */
 
 const getAI = () => {
-  let apiKey = "AIzaSyBilCh3t2SfI7G1-mlikSRw259ZWjnZYQ0";
-  try {
-    // Attempt to use environment variable if available
-    if (typeof process !== 'undefined' && process.env.API_KEY) {
-      apiKey = process.env.API_KEY;
-    }
-  } catch (e) {
-    // Fallback to hardcoded key if process.env access fails
-    console.warn("Environment variable access failed, using fallback key.");
+  // Fetch API key from environment variables. 
+  // Checks standard process.env and Vite-specific import.meta.env patterns.
+  // Priority: Standard Process Env -> Vite Prefix -> User Custom Name
+  const apiKey = 
+    process.env.API_KEY || 
+    process.env.VITE_API_KEY || 
+    process.env.GEMINI_API_KEY || 
+    process.env.VITE_GEMINI_API_KEY;
+
+  if (!apiKey) {
+    console.error("Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env.local file.");
+    throw new Error("Missing Google GenAI API Key");
   }
+  
   return new GoogleGenAI({ apiKey });
 };
 
