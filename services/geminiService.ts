@@ -6,17 +6,17 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
  */
 
 const getAI = () => {
-let apiKey = "AIzaSyBitjWoN4tdXTzPyoCENrijHHmm7x8RKoU";
-try {
-// Attempt to use environment variable if available
-if (typeof process !== 'undefined' && process.env.API_KEY) {
-apiKey = process.env.API_KEY;
-}
-} catch (e) {
-// Fallback to hardcoded key if process.env access fails
-console.warn("Environment variable access failed, using fallback key.");
-}
-return new GoogleGenAI({ apiKey });
+  let apiKey = "AIzaSyBitjWoN4tdXTzPyoCENrijHHmm7x8RKoU";
+  try {
+    // Attempt to use environment variable if available
+    if (typeof process !== 'undefined' && process.env.API_KEY) {
+      apiKey = process.env.API_KEY;
+    }
+  } catch (e) {
+    // Fallback to hardcoded key if process.env access fails
+    console.warn("Environment variable access failed, using fallback key.");
+  }
+  return new GoogleGenAI({ apiKey });
 };
 
 // Relaxed Schema: Made mapUrl and operatorDetails optional to prevent generation failures
