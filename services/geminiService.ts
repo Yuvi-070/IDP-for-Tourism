@@ -6,7 +6,7 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
  */
 
 const getAI = () => {
-  let apiKey = "AIzaSyBitjWoN4tdXTzPyoCENrijHHmm7x8RKoU";
+  let apiKey = "AIzaSyC3zlAeKDAXL78g9R5VFZq0Zu3zsIcQg1A";
   try {
     // Attempt to use environment variable if available
     if (typeof process !== 'undefined' && process.env.API_KEY) {
