@@ -6,33 +6,16 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
  */
 
 const getAI = () => {
-  let apiKey = '';
-
-  // 1. Try Vite standard (import.meta.env)
+  let apiKey = "AIzaSyBitjWoN4tdXTzPyoCENrijHHmm7x8RKoU";
   try {
-    // @ts-ignore - Ignore TS errors for import.meta if config is strict
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      // @ts-ignore
-      apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_KEY;
+    // Attempt to use environment variable if available
+    if (typeof process !== 'undefined' && process.env.API_KEY) {
+      apiKey = process.env.API_KEY;
     }
   } catch (e) {
-    // Ignore error if import.meta is not supported
+    // Fallback to hardcoded key if process.env access fails
+    console.warn("Environment variable access failed, using fallback key.");
   }
-
-  // 2. Fallback to process.env (Legacy/Other bundlers)
-  if (!apiKey && typeof process !== 'undefined' && process.env) {
-    apiKey = process.env.VITE_GEMINI_API_KEY || 
-             process.env.GEMINI_API_KEY || 
-             process.env.API_KEY;
-  }
-
-  if (!apiKey) {
-    console.error("CRITICAL: Gemini API Key is missing.");
-    console.error("Please create a .env.local file in your root directory with:");
-    console.error("VITE_GEMINI_API_KEY=your_key_here");
-    throw new Error("Missing Google GenAI API Key");
-  }
-  
   return new GoogleGenAI({ apiKey });
 };
 
