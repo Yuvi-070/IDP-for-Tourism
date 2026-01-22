@@ -29,18 +29,35 @@ const App: React.FC = () => {
   const [userRole, setUserRole] = useState<'user' | 'guide'>('user');
 
   useEffect(() => {
+    let mounted = true;
+
+    // Safety timeout: If Supabase takes too long (e.g. project paused/network issue), 
+    // force stop loading so user isn't stuck.
+    const loadingTimeout = setTimeout(() => {
+      if (mounted) {
+        console.warn("Auth initialization timed out. Forcing app load.");
+        setLoading(false);
+      }
+    }, 3000);
+
     const initAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
-        setSession(session);
-        if (session?.user) {
-          await checkUserProfile(session.user.id, session.user.email);
+        
+        if (mounted) {
+          setSession(session);
+          if (session?.user) {
+            await checkUserProfile(session.user.id, session.user.email);
+          }
         }
       } catch (e) {
         console.warn("Auth initialization failed (likely network or config):", e);
       } finally {
-        setLoading(false);
+        if (mounted) {
+          clearTimeout(loadingTimeout);
+          setLoading(false);
+        }
       }
     };
 
@@ -49,21 +66,27 @@ const App: React.FC = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      if (session) {
-        setShowAuth(false);
-        setIsGuest(false);
-        await checkUserProfile(session.user.id, session.user.email);
-      }
-      if (event === 'SIGNED_OUT') {
-        setIsGuest(false);
-        setShowAuth(false);
-        setActiveTab('home');
-        setUserRole('user');
+      if (mounted) {
+        setSession(session);
+        if (session) {
+          setShowAuth(false);
+          setIsGuest(false);
+          await checkUserProfile(session.user.id, session.user.email);
+        }
+        if (event === 'SIGNED_OUT') {
+          setIsGuest(false);
+          setShowAuth(false);
+          setActiveTab('home');
+          setUserRole('user');
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      clearTimeout(loadingTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const checkUserProfile = async (userId: string, email?: string) => {
