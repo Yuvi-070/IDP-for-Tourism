@@ -3,16 +3,12 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
 
 /**
  * AI Initialization Service
+ * Direct access to process.env.API_KEY is required for static replacement 
+ * by build tools like Vite or Vercel's deployment engine.
  */
 const getAI = () => {
-  // Use a safe accessor for process.env to prevent ReferenceErrors in pure browser environments
-  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
-  
-  if (!apiKey) {
-    console.warn("Gemini SDK: process.env.API_KEY is currently undefined. Ensure the environment variable is correctly set in Vercel.");
-  }
-  
-  return new GoogleGenAI({ apiKey: apiKey as string });
+  // Use the literal string process.env.API_KEY to allow build-time replacement
+  return new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 };
 
 // Relaxed Schema: Made mapUrl and operatorDetails optional to prevent generation failures
@@ -299,7 +295,7 @@ export const getIconicHotspots = async (category: string = "trending") => {
   const ai = getAI();
   // Refining searchTerm for more reliable tool triggering
   const searchTerm = category === 'trending' ? 'top rated historical and cultural attractions' : `${category} destinations for tourists`;
-  const query = `Provide a list of 12 distinct ${searchTerm} in India. Use the Google Maps tool to ground each location with a URI and Title. If multiple locations match, select the most iconic ones.`;
+  const query = `Provide a list of 12 distinct ${searchTerm} in India. You MUST use the Google Maps tool to ground each location with a URI and Title. If multiple locations match, select the most iconic ones.`;
   
   try {
     const response = await ai.models.generateContent({
