@@ -3,16 +3,17 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
 
 /**
  * AI Initialization Service
- * Direct access to process.env.API_KEY is required for static replacement 
- * by build tools like Vite, Webpack, or Vercel's deployment engine.
+ * Use a strict literal for process.env.API_KEY. 
+ * Most build tools look for this exact string to perform static replacement.
  */
 const getAI = () => {
-  // Ensure the key exists before attempting initialization to avoid generic SDK errors
-  const apiKey = process?.env?.API_KEY;
-  if (!apiKey) {
-    throw new Error("Neural Link Offline: API_KEY is undefined. Please verify Vercel Environment Variables and REDEPLOY your project.");
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey || apiKey === "undefined" || apiKey.length < 5) {
+    throw new Error("Neural Link Offline: API_KEY is undefined. You MUST REDEPLOY your project on Vercel after adding the environment variable for changes to take effect.");
   }
-  return new GoogleGenAI({ apiKey: apiKey as string });
+  
+  return new GoogleGenAI({ apiKey });
 };
 
 // Relaxed Schema: Made mapUrl and operatorDetails optional to prevent generation failures
