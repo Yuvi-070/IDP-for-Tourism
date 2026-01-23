@@ -4,11 +4,15 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
 /**
  * AI Initialization Service
  * Direct access to process.env.API_KEY is required for static replacement 
- * by build tools like Vite or Vercel's deployment engine.
+ * by build tools like Vite, Webpack, or Vercel's deployment engine.
  */
 const getAI = () => {
-  // Use the literal string process.env.API_KEY to allow build-time replacement
-  return new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  // Ensure the key exists before attempting initialization to avoid generic SDK errors
+  const apiKey = process?.env?.API_KEY;
+  if (!apiKey) {
+    throw new Error("Neural Link Offline: API_KEY is undefined. Please verify Vercel Environment Variables and REDEPLOY your project.");
+  }
+  return new GoogleGenAI({ apiKey: apiKey as string });
 };
 
 // Relaxed Schema: Made mapUrl and operatorDetails optional to prevent generation failures
@@ -90,8 +94,8 @@ export const generateTravelItinerary = async (
   travelersCount: number
 ): Promise<Itinerary> => {
   const themeString = themes.join(", ");
-  const ai = getAI();
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Architect a ${duration}-day travel itinerary for ${destination} starting from ${startingLocation} for ${travelersCount} travelers.
@@ -105,15 +109,15 @@ export const generateTravelItinerary = async (
     const text = response.text;
     if (!text) throw new Error("AI returned empty response.");
     return JSON.parse(text) as Itinerary;
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Planner Error:", error);
     throw error;
   }
 };
 
 export const generateItineraryFromPrompt = async (prompt: string): Promise<Itinerary> => {
-  const ai = getAI();
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Synthesize a comprehensive itinerary based on: "${prompt}".`,
@@ -126,15 +130,15 @@ export const generateItineraryFromPrompt = async (prompt: string): Promise<Itine
     const text = response.text;
     if (!text) throw new Error("AI returned empty response.");
     return JSON.parse(text) as Itinerary;
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Planner (Prompt) Error:", error);
     throw error;
   }
 };
 
 export const mergeItineraries = async (itineraries: Itinerary[]): Promise<Itinerary> => {
-  const ai = getAI();
   try {
+    const ai = getAI();
     const itinerariesJson = JSON.stringify(itineraries);
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -151,22 +155,22 @@ export const mergeItineraries = async (itineraries: Itinerary[]): Promise<Itiner
     const data = JSON.parse(text);
     data.isMerged = true;
     return data as Itinerary;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Merge Itineraries Error:", error);
     throw error;
   }
 };
 
 export const chatWithLocalAI = async (message: string, context: string) => {
-  const ai = getAI();
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `You are the LocalLens AI Concierge. Context: ${context}. User: ${message}.`,
       config: { tools: [{ googleSearch: {} }, { googleMaps: {} }] }
     });
     return response.text || "I apologize, I am unable to process that request at the moment.";
-  } catch (error) {
+  } catch (error: any) {
     console.error("Chat Error:", error);
     return "Connection interrupted. Please try again.";
   }
@@ -217,8 +221,8 @@ export const refreshHotelRecommendations = async (
   hotelStars: number,
   excludedHotels: string[]
 ): Promise<HotelRecommendation[]> => {
-  const ai = getAI();
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Suggest 3 alternative ${hotelStars}-star hotels in ${destination}, excluding: ${excludedHotels.join(", ")}.`,
@@ -228,15 +232,15 @@ export const refreshHotelRecommendations = async (
       }
     });
     return JSON.parse(response.text || "[]") as HotelRecommendation[];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Hotel Refresh Error:", error);
     return [];
   }
 };
 
 export const getMoreSuggestions = async (destination: string): Promise<Activity[]> => {
-  const ai = getAI();
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Find 5 additional unique spots in ${destination}.`,
@@ -246,15 +250,15 @@ export const getMoreSuggestions = async (destination: string): Promise<Activity[
       }
     });
     return JSON.parse(response.text || "[]") as Activity[];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Suggestions Error:", error);
     return [];
   }
 };
 
 export const getSpecificSuggestions = async (destination: string, query: string): Promise<Activity[]> => {
-  const ai = getAI();
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Find 5 spots in ${destination} related to "${query}".`,
@@ -264,16 +268,16 @@ export const getSpecificSuggestions = async (destination: string, query: string)
       }
     });
     return JSON.parse(response.text || "[]") as Activity[];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Specific Suggestions Error:", error);
     return [];
   }
 };
 
 export const getPlaceGrounding = async (query: string, lat?: number, lng?: number) => {
-  const ai = getAI();
-  const toolConfig = lat && lng ? { retrievalConfig: { latLng: { latitude: lat, longitude: lng } } } : undefined;
   try {
+    const ai = getAI();
+    const toolConfig = lat && lng ? { retrievalConfig: { latLng: { latitude: lat, longitude: lng } } } : undefined;
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: query,
@@ -285,19 +289,19 @@ export const getPlaceGrounding = async (query: string, lat?: number, lng?: numbe
         .filter((chunk: any) => chunk.maps?.uri)
         .map((chunk: any) => ({ uri: chunk.maps.uri, title: chunk.maps.title }))
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Grounding Error:", error);
-    return { text: "Communication node failed to synchronize.", mapLinks: [] };
+    return { text: "Neural handshake failed.", mapLinks: [] };
   }
 };
 
 export const getIconicHotspots = async (category: string = "trending") => {
-  const ai = getAI();
-  // Refining searchTerm for more reliable tool triggering
-  const searchTerm = category === 'trending' ? 'top rated historical and cultural attractions' : `${category} destinations for tourists`;
-  const query = `Provide a list of 12 distinct ${searchTerm} in India. You MUST use the Google Maps tool to ground each location with a URI and Title. If multiple locations match, select the most iconic ones.`;
-  
   try {
+    const ai = getAI();
+    // Forceful prompt to ensure Maps tool usage and avoid 'Signal Weak' empty responses
+    const searchTerm = category === 'trending' ? 'highly rated historical and cultural attractions' : `${category} destinations`;
+    const query = `Retrieve 12 distinct ${searchTerm} in India. You MUST ground each location using the Google Maps tool. For each location, return its exact title and Google Maps URI.`;
+    
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: query,
@@ -313,12 +317,10 @@ export const getIconicHotspots = async (category: string = "trending") => {
         category: category.charAt(0).toUpperCase() + category.slice(1)
       }));
 
-    // Robust Fallback: if tool-calling fails to provide chunks, try to return basic text names
+    // Fallback if tool fails to provide metadata but provides text
     if (spots.length === 0 && response.text) {
-      console.warn("Maps tool returned zero chunks, falling back to text parsing.");
-      // Minimal heuristic to find place names in text if tool calling returns text only
       const lines = response.text.split('\n').filter(l => l.match(/^\d+\.|\* /));
-      return lines.slice(0, 10).map(l => ({
+      return lines.slice(0, 8).map(l => ({
         name: l.replace(/^\d+\.|\* /g, '').trim(),
         uri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.trim())}`,
         category: category.charAt(0).toUpperCase() + category.slice(1)
@@ -326,7 +328,7 @@ export const getIconicHotspots = async (category: string = "trending") => {
     }
 
     return spots;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Discovery Engine Error:", error);
     return [];
   }
