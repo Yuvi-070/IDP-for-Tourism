@@ -3,11 +3,16 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
 
 /**
  * AI Initialization Service
- * This service initializes the Google GenAI SDK using the API_KEY 
- * provided via Vercel's environment variables.
  */
 const getAI = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Use a safe accessor for process.env to prevent ReferenceErrors in pure browser environments
+  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  
+  if (!apiKey) {
+    console.warn("Gemini SDK: process.env.API_KEY is currently undefined. Ensure the environment variable is correctly set in Vercel.");
+  }
+  
+  return new GoogleGenAI({ apiKey: apiKey as string });
 };
 
 // Relaxed Schema: Made mapUrl and operatorDetails optional to prevent generation failures
@@ -272,23 +277,29 @@ export const getSpecificSuggestions = async (destination: string, query: string)
 export const getPlaceGrounding = async (query: string, lat?: number, lng?: number) => {
   const ai = getAI();
   const toolConfig = lat && lng ? { retrievalConfig: { latLng: { latitude: lat, longitude: lng } } } : undefined;
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: query,
-    config: { tools: [{ googleMaps: {} }], toolConfig: toolConfig },
-  });
-  return { 
-    text: response.text || "", 
-    mapLinks: (response.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
-      .filter((chunk: any) => chunk.maps?.uri)
-      .map((chunk: any) => ({ uri: chunk.maps.uri, title: chunk.maps.title }))
-  };
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: query,
+      config: { tools: [{ googleMaps: {} }], toolConfig: toolConfig },
+    });
+    return { 
+      text: response.text || "", 
+      mapLinks: (response.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
+        .filter((chunk: any) => chunk.maps?.uri)
+        .map((chunk: any) => ({ uri: chunk.maps.uri, title: chunk.maps.title }))
+    };
+  } catch (error) {
+    console.error("Grounding Error:", error);
+    return { text: "Communication node failed to synchronize.", mapLinks: [] };
+  }
 };
 
 export const getIconicHotspots = async (category: string = "trending") => {
   const ai = getAI();
-  const searchTerm = category === 'trending' ? 'top rated and popular tourist attractions' : `${category} destinations`;
-  const query = `List 12 unique ${searchTerm} in India. You MUST use the Google Maps tool.`;
+  // Refining searchTerm for more reliable tool triggering
+  const searchTerm = category === 'trending' ? 'top rated historical and cultural attractions' : `${category} destinations for tourists`;
+  const query = `Provide a list of 12 distinct ${searchTerm} in India. Use the Google Maps tool to ground each location with a URI and Title. If multiple locations match, select the most iconic ones.`;
   
   try {
     const response = await ai.models.generateContent({
@@ -298,13 +309,27 @@ export const getIconicHotspots = async (category: string = "trending") => {
     });
     
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    return chunks
+    const spots = chunks
       .filter((chunk: any) => chunk.maps?.uri && chunk.maps?.title)
       .map((chunk: any) => ({
         name: chunk.maps.title,
         uri: chunk.maps.uri,
         category: category.charAt(0).toUpperCase() + category.slice(1)
       }));
+
+    // Robust Fallback: if tool-calling fails to provide chunks, try to return basic text names
+    if (spots.length === 0 && response.text) {
+      console.warn("Maps tool returned zero chunks, falling back to text parsing.");
+      // Minimal heuristic to find place names in text if tool calling returns text only
+      const lines = response.text.split('\n').filter(l => l.match(/^\d+\.|\* /));
+      return lines.slice(0, 10).map(l => ({
+        name: l.replace(/^\d+\.|\* /g, '').trim(),
+        uri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.trim())}`,
+        category: category.charAt(0).toUpperCase() + category.slice(1)
+      }));
+    }
+
+    return spots;
   } catch (error) {
     console.error("Discovery Engine Error:", error);
     return [];
