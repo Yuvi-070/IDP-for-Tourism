@@ -3,21 +3,11 @@ import { Itinerary, Activity, HotelRecommendation } from "../types";
 
 /**
  * AI Initialization Service
+ * This service initializes the Google GenAI SDK using the API_KEY 
+ * provided via Vercel's environment variables.
  */
-
 const getAI = () => {
-  // Reverted to the previous key as the new one has referrer restrictions blocked for this origin
-  let apiKey = "AIzaSyBitjWoN4tdXTzPyoCENrijHHmm7x8RKoU";
-  try {
-    // Attempt to use environment variable if available
-    if (typeof process !== 'undefined' && process.env.API_KEY) {
-      apiKey = process.env.API_KEY;
-    }
-  } catch (e) {
-    // Fallback to hardcoded key if process.env access fails
-    console.warn("Environment variable access failed, using fallback key.");
-  }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 // Relaxed Schema: Made mapUrl and operatorDetails optional to prevent generation failures
@@ -48,7 +38,6 @@ const ITINERARY_SCHEMA = {
                 culturalInsight: { type: Type.STRING },
                 mapUrl: { type: Type.STRING }
               },
-              // Removed mapUrl from required to improve generation success rate
               required: ["time", "location", "description", "culturalInsight", "estimatedTime", "estimatedCost"]
             }
           }
@@ -67,7 +56,6 @@ const ITINERARY_SCHEMA = {
           duration: { type: Type.STRING },
           operatorDetails: { type: Type.STRING, description: "E.g., Train Name/No, Flight Carrier, Bus Operator" }
         },
-        // Removed operatorDetails from required
         required: ["mode", "description", "estimatedCost", "duration"]
       }
     },
@@ -85,7 +73,6 @@ const ITINERARY_SCHEMA = {
           webRating: { type: Type.NUMBER, description: "Real-world Web/TripAdvisor rating (e.g. 4.6)" },
           reviewCount: { type: Type.STRING, description: "Approx number of reviews (e.g. '1.2K+')" }
         },
-        // Removed mapUrl from required
         required: ["name", "description", "estimatedPricePerNight", "amenities", "googleRating", "webRating", "reviewCount"]
       }
     }
@@ -104,7 +91,6 @@ export const generateTravelItinerary = async (
   const themeString = themes.join(", ");
   const ai = getAI();
   try {
-    // Using gemini-3-flash-preview for balanced speed/quality and reliable JSON structure
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Architect a ${duration}-day travel itinerary for ${destination} starting from ${startingLocation} for ${travelersCount} travelers.
@@ -116,15 +102,8 @@ export const generateTravelItinerary = async (
     });
 
     const text = response.text;
-    if (!text) throw new Error("AI returned empty response. The model may have been blocked or timed out.");
-
-    const data = JSON.parse(text);
-    // Basic validation to prevent UI crashes
-    if (!data.days) data.days = [];
-    if (!data.hotelRecommendations) data.hotelRecommendations = [];
-    if (!data.travelOptions) data.travelOptions = [];
-    
-    return data as Itinerary;
+    if (!text) throw new Error("AI returned empty response.");
+    return JSON.parse(text) as Itinerary;
   } catch (error) {
     console.error("AI Planner Error:", error);
     throw error;
@@ -145,9 +124,7 @@ export const generateItineraryFromPrompt = async (prompt: string): Promise<Itine
     
     const text = response.text;
     if (!text) throw new Error("AI returned empty response.");
-    
-    const data = JSON.parse(text);
-    return data as Itinerary;
+    return JSON.parse(text) as Itinerary;
   } catch (error) {
     console.error("AI Planner (Prompt) Error:", error);
     throw error;
@@ -161,8 +138,6 @@ export const mergeItineraries = async (itineraries: Itinerary[]): Promise<Itiner
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Merge the following ${itineraries.length} travel itineraries into one single, cohesive, sequential itinerary. 
-      Combine the durations, costs, and locations logically. If locations are distant, suggest travel between them.
-      The output must be a single itinerary object following the schema.
       Input Itineraries: ${itinerariesJson}`,
       config: {
         responseMimeType: "application/json",
@@ -172,9 +147,8 @@ export const mergeItineraries = async (itineraries: Itinerary[]): Promise<Itiner
     
     const text = response.text;
     if (!text) throw new Error("AI returned empty response.");
-    
     const data = JSON.parse(text);
-    data.isMerged = true; // Flag as merged
+    data.isMerged = true;
     return data as Itinerary;
   } catch (error) {
     console.error("Merge Itineraries Error:", error);
@@ -313,17 +287,12 @@ export const getPlaceGrounding = async (query: string, lat?: number, lng?: numbe
 
 export const getIconicHotspots = async (category: string = "trending") => {
   const ai = getAI();
-  
-  // Refine category for better map results.
-  // "Trending" can be too abstract for tool usage, so we map it to concrete terms.
   const searchTerm = category === 'trending' ? 'top rated and popular tourist attractions' : `${category} destinations`;
-
-  // Prompt explicitly asks for Google Maps usage to ensure the tool is triggered for every item.
-  const query = `List 12 unique ${searchTerm} in India. You MUST use the Google Maps tool to find the specific location for each result. Return at least 10 results.`;
+  const query = `List 12 unique ${searchTerm} in India. You MUST use the Google Maps tool.`;
   
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash", // Must use 2.5 series for Maps
+      model: "gemini-2.5-flash",
       contents: query,
       config: { tools: [{ googleMaps: {} }] },
     });

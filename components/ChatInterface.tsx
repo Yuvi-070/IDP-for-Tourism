@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { chatWithLocalAI, translateText, analyzeLocationImage } from '../services/geminiService';
 import { supabase, getMyBookings, getMessages, sendMessage, getUserItineraries, updateBookingStatus } from '../services/supabaseClient';
@@ -203,7 +204,12 @@ const ChatInterface: React.FC = () => {
 
   // Check if the last message indicates chat ended
   const lastMessage = messages[messages.length - 1];
-  const isChatEnded = activeSession !== 'ai' && (lastMessage?.content?.includes("chat session has been ended") || lastMessage?.text?.includes("chat session has been ended"));
+  // Fix: Safe access to content or text from union type ChatMessage | RealtimeMessage to resolve line 206 errors.
+  const lastMsgString = lastMessage ? (
+    'content' in lastMessage ? (lastMessage as RealtimeMessage).content : 
+    'text' in lastMessage ? (lastMessage as ChatMessage).text : ""
+  ) : "";
+  const isChatEnded = activeSession !== 'ai' && lastMsgString.includes("chat session has been ended");
 
   const activeBookings = bookings.filter(b => b.status === 'approved');
   const pendingBookings = bookings.filter(b => b.status === 'pending');
@@ -442,7 +448,7 @@ const ChatInterface: React.FC = () => {
                                          <div className="flex justify-between items-start mb-3 relative z-10">
                                              <div className="text-[10px] font-black uppercase text-pink-500 tracking-widest">Itinerary Shared</div>
                                              <div className="bg-white/10 text-white p-2 rounded-full group-hover:bg-pink-600 transition-colors">
-                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                              </div>
                                          </div>
                                          <div className="font-black text-xl mb-1 text-white relative z-10">{m.metadata?.destination}</div>

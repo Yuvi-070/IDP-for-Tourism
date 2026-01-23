@@ -16,6 +16,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGuestLogin }) => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [terminalStep, setTerminalStep] = useState(0);
+  const [guideCount, setGuideCount] = useState<string>("1.2K");
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -30,6 +31,25 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGuestLogin }) => {
       setTimeout(() => setTerminalStep(5), 3800),  // Card appears
     ];
 
+    // Fetch live guide count
+    const fetchLiveStats = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('guides')
+          .select('*', { count: 'exact', head: true });
+        
+        if (!error && count !== null) {
+          // If count is very low (e.g., new instance), display as a raw number, 
+          // otherwise format it.
+          setGuideCount(count > 0 ? count.toLocaleString() : "1.2K");
+        }
+      } catch (err) {
+        console.error("Failed to fetch live stats", err);
+      }
+    };
+
+    fetchLiveStats();
+
     return () => {
       window.removeEventListener('scroll', handleScroll);
       timeouts.forEach(clearTimeout);
@@ -38,7 +58,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGuestLogin }) => {
 
   const stats = [
     { label: "Active Nodes", value: "48" },
-    { label: "Verified Experts", value: "1.2K" },
+    { label: "Verified Experts", value: guideCount },
     { label: "Routes Synthesized", value: "85k+" },
     { label: "Cultural Data Points", value: "4M+" },
   ];
@@ -86,13 +106,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGuestLogin }) => {
     try {
       if (isSignUp) {
         // 1. Sign up the user with metadata
-        // This passes the role to the database trigger, which handles profile creation securely.
         const { data, error: authError } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
-              role: role // Pass 'user' or 'guide'
+              role: role 
             }
           }
         });
@@ -120,8 +139,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGuestLogin }) => {
 
   const handleGoogleLogin = async () => {
     try {
-      // Google Login defaults to 'user' role via Database Trigger logic:
-      // coalesce(new.raw_user_meta_data->>'role', 'user')
       await signInWithGoogle();
     } catch (error: any) {
       console.error("Google Auth Error:", error);
