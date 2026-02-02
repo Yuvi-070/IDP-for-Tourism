@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Itinerary, Activity, HotelRecommendation } from "../types";
 
@@ -98,7 +99,7 @@ export const generateTravelItinerary = async (
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: `Architect a ${duration}-day travel itinerary for ${destination} starting from ${startingLocation} for ${travelersCount} travelers.
       Themes: ${themeString}. Specific Hotel Requirement: ${hotelStars}-star hotels.`,
       config: {
@@ -120,7 +121,7 @@ export const generateItineraryFromPrompt = async (prompt: string): Promise<Itine
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: `Synthesize a comprehensive itinerary based on: "${prompt}".`,
       config: {
         responseMimeType: "application/json",
@@ -142,7 +143,7 @@ export const mergeItineraries = async (itineraries: Itinerary[]): Promise<Itiner
     const ai = getAI();
     const itinerariesJson = JSON.stringify(itineraries);
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: `Merge the following ${itineraries.length} travel itineraries into one single, cohesive, sequential itinerary. 
       Input Itineraries: ${itinerariesJson}`,
       config: {
@@ -202,7 +203,7 @@ export const generateSpeech = async (text: string): Promise<string> => {
 export const analyzeLocationImage = async (base64Image: string, mimeType: string) => {
   const ai = getAI();
   const response = await ai.models.generateContent({
-    model: "gemini-3-pro-preview",
+    model: "gemini-2.5-flash",
     contents: { parts: [{ inlineData: { data: base64Image, mimeType: mimeType } }, { text: "Identify this location in India." }] },
   });
   return response.text || "";
@@ -225,7 +226,7 @@ export const refreshHotelRecommendations = async (
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: `Suggest 3 alternative ${hotelStars}-star hotels in ${destination}, excluding: ${excludedHotels.join(", ")}.`,
       config: {
         responseMimeType: "application/json",
@@ -243,7 +244,7 @@ export const getMoreSuggestions = async (destination: string): Promise<Activity[
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: `Find 5 additional unique spots in ${destination}.`,
       config: {
         responseMimeType: "application/json",
@@ -261,7 +262,7 @@ export const getSpecificSuggestions = async (destination: string, query: string)
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: `Find 5 spots in ${destination} related to "${query}".`,
       config: {
         responseMimeType: "application/json",
