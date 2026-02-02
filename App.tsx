@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Hero from './components/Hero';
@@ -134,6 +135,19 @@ const App: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Sign out error", error);
+    }
+    // Explicitly clear all session state to ensure UI reflects logout immediately
+    setSession(null);
+    setIsGuest(false);
+    setActiveTab('home');
+    setUserRole('user');
+  };
+
   const handleMapSelect = (dest: string) => {
     setPreselectedDest(dest);
     setEditingItinerary(null); 
@@ -181,7 +195,7 @@ const App: React.FC = () => {
       case 'home':
         return (
           <div className="bg-slate-950">
-            <Hero onGetStarted={() => setActiveTab('planner')} />
+            <Hero onGetStarted={() => setActiveTab('planner')} onOpenChat={() => setActiveTab('chat')} />
             
             <section className="py-24 sm:py-32 bg-slate-950 overflow-hidden relative">
               <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
@@ -253,7 +267,7 @@ const App: React.FC = () => {
       case 'user-profile':
         return <UserProfile />;
       default:
-        return <Hero onGetStarted={() => setActiveTab('planner')} />;
+        return <Hero onGetStarted={() => setActiveTab('planner')} onOpenChat={() => setActiveTab('chat')} />;
     }
   };
 
@@ -312,6 +326,7 @@ const App: React.FC = () => {
       session={session}
       onLoginClick={() => setShowAuth(true)}
       userRole={userRole}
+      onLogout={handleLogout}
     >
       {showAuth && !session ? (
         <div className="fixed inset-0 z-[200] bg-slate-950">

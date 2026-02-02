@@ -8,9 +8,10 @@ interface LayoutProps {
   session: any;
   onLoginClick: () => void;
   userRole?: 'user' | 'guide';
+  onLogout?: () => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, session, onLoginClick, userRole = 'user' }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, session, onLoginClick, userRole = 'user', onLogout }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Define base nav items
@@ -31,7 +32,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, sess
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (onLogout) {
+      onLogout();
+    } else {
+      await supabase.auth.signOut();
+    }
   };
 
   const handleGoogleSignIn = async () => {

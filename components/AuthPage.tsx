@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase, signInWithGoogle } from '../services/supabaseClient';
 
@@ -466,13 +465,18 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGuestLogin }) => {
                 <div className="inline-block p-3 bg-white/5 rounded-2xl mb-4 border border-white/10 shadow-lg">
                    <div className="w-8 h-8 bg-gradient-to-br from-pink-600 to-orange-500 rounded-lg flex items-center justify-center text-white font-black">L</div>
                 </div>
-                <h2 className="text-3xl font-black text-white mb-2 tracking-tight">{isSignUp ? 'Initialize Identity' : 'Resume Session'}</h2>
+                <h2 className="text-3xl font-black text-white mb-2 tracking-tight">{isSignUp ? 'Create Account' : 'Welcome Back'}</h2>
                 <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Secure Gateway Access</p>
               </div>
 
-              <div className="flex bg-black/40 p-1 rounded-full mb-8 border border-white/5">
-                 <button onClick={() => setRole('user')} className={`flex-1 py-3 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${role === 'user' ? 'bg-pink-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Traveler</button>
-                 <button onClick={() => setRole('guide')} className={`flex-1 py-3 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${role === 'guide' ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Expert Guide</button>
+              <div className="relative flex bg-black/40 p-1 rounded-full mb-8 border border-white/5">
+                 <div 
+                    className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) shadow-lg ${
+                        role === 'user' ? 'left-1 bg-pink-600' : 'left-1/2 bg-orange-500'
+                    }`}
+                 ></div>
+                 <button onClick={() => setRole('user')} className={`relative z-10 flex-1 py-3 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors duration-300 ${role === 'user' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Traveler</button>
+                 <button onClick={() => setRole('guide')} className={`relative z-10 flex-1 py-3 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors duration-300 ${role === 'guide' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Expert Guide</button>
               </div>
 
               <form onSubmit={handleAuth} className="space-y-4">
@@ -483,7 +487,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onGuestLogin }) => {
                   <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-4 text-white font-bold outline-none focus:border-pink-500 transition-all text-sm placeholder:text-slate-600 focus:bg-black/50" placeholder="Passkey" required />
                 </div>
                 {error && <div className="text-red-400 text-[10px] font-black uppercase tracking-wider bg-red-500/10 p-4 rounded-xl border border-red-500/20 text-center">{error}</div>}
-                <button type="submit" disabled={loading} className="w-full py-4 rounded-xl bg-white text-slate-950 font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-200 transition-all disabled:opacity-50 mt-4 shadow-xl hover:scale-[1.02] active:scale-[0.98]">{loading ? 'Authenticating...' : (isSignUp ? 'Generate ID' : 'Connect Node')}</button>
+                <button type="submit" disabled={loading} className="w-full py-4 rounded-xl bg-white text-slate-950 font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-200 transition-all disabled:opacity-50 mt-4 shadow-xl hover:scale-[1.02] active:scale-[0.98]">{loading ? 'Processing...' : (isSignUp ? 'Create Account' : 'Sign In')}</button>
               </form>
 
               <div className="mt-8 flex flex-col items-center gap-6">

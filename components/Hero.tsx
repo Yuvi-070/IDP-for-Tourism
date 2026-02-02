@@ -2,13 +2,18 @@
 import React, { useState, useEffect } from 'react';
 
 const images = [
-  "https://images.unsplash.com/photo-1548013146-72479768bbaa?auto=format&fit=crop&q=80&w=1920", // Taj Mahal
+  "https://images.unsplash.com/photo-1548013146-72479768bbaa?auto=format&fit=crop&q=80&w=1920", // Taj Mahal (Updated)
   "https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?auto=format&fit=crop&q=80&w=1920", // Ladakh
   "https://images.unsplash.com/photo-1506461883276-594a12b11cf3?auto=format&fit=crop&q=80&w=1920", // Varanasi
   "https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&q=80&w=1920"  // Kerala
 ];
 
-const Hero: React.FC<{ onGetStarted: () => void }> = ({ onGetStarted }) => {
+interface HeroProps {
+  onGetStarted: () => void;
+  onOpenChat: () => void;
+}
+
+const Hero: React.FC<HeroProps> = ({ onGetStarted, onOpenChat }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
@@ -75,8 +80,11 @@ const Hero: React.FC<{ onGetStarted: () => void }> = ({ onGetStarted }) => {
               <span className="relative z-10">Start Blueprint</span>
               <svg className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 opacity-0 group-hover:opacity-100 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7-7 7" /></svg>
             </button>
-            <button className="w-full sm:w-auto bg-white/5 backdrop-blur-3xl hover:bg-white/10 text-white border border-white/10 px-12 py-6 sm:py-7 rounded-full font-black text-sm sm:text-xl transition-all active:scale-95 whitespace-nowrap uppercase tracking-[0.3em]">
-              Access Vault
+            <button 
+              onClick={onOpenChat}
+              className="w-full sm:w-auto bg-white/5 backdrop-blur-3xl hover:bg-white/10 text-white border border-white/10 px-12 py-6 sm:py-7 rounded-full font-black text-sm sm:text-xl transition-all active:scale-95 whitespace-nowrap uppercase tracking-[0.3em]"
+            >
+              AI Concierge
             </button>
           </div>
         </div>
